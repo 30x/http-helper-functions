@@ -1,0 +1,19 @@
+{
+  "name": "http-helper-functions",
+  "version": "0.0.1",
+  "description": "Some helper functions for working with the Node http module",
+  "main": "http-helper-functions.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpnally/http-helper-functions.git"
+  },
+  "author": "Martin Nally",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/mpnally/http-helper-functions/issues"
+  },
+  "homepage": "https://github.com/mpnally/http-helper-functions#readme"
+}
