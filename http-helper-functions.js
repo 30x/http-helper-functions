@@ -334,7 +334,9 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
 
 function withAllowedDo(req, serverRes, resourceURL, action, callback) {
   var user = getUser(req);
-  var permissionsURL = '/is-allowed?resource=' + resourceURL;
+  var resourceURLs = Array.isArray(resourceURL) ? resourceURL : [resourceURL];
+  var qs = resourceURLs.map(x => `resource=${x}`).join('&');
+  var permissionsURL = `/is-allowed?${qs}`;
   if (user !== null) {
     permissionsURL += '&user=' + user;
   }
