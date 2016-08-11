@@ -434,7 +434,7 @@ function setStandardCreationProperties(req, resource, user) {
   if (resource.created) {
     return 'may not set created'
   } else {
-    resource.creator = new Date().toISOString()
+    resource.created = new Date().toISOString()
   }
   if (resource.modified) {
     return 'may not set modified'
