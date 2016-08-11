@@ -261,14 +261,14 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
     if (permissions === null || permissions === undefined) {
       permissions = {
         isA: 'Permissions',
-        readers: [user],
-        updaters: [user],
+        grantsReadAcessTo: [user],
+        grantsUpdateAccessTo: [user],
         governs: {
           _self: resourceURL,
-          readers: [user],
-          writers: [user],
-          updaters: [user],
-          creators: [user]
+          grantsReadAcessTo: [user],
+          grantsDeleteAcessTo: [user],
+          grantsUpdateAccessTo: [user],
+          grantsCreateAcessTo: [user]
         }
       }  
     } else {
@@ -282,9 +282,9 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
           badRequest(serverRes, 'value of governs must match resourceURL');
         }
       }
-      if (permissions.inheritsPermissionsOf === undefined && permissions.updaters === undefined) {
-        permissions.updaters = [user];
-        permissions.readers = permissions.readers || [user];
+      if (permissions.inheritsPermissionsOf === undefined && permissions.grantsUpdateAccessTo === undefined) {
+        permissions.grantsUpdateAccessTo = [user];
+        permissions.grantsReadAcessTo = permissions.grantsReadAcessTo || [user];
       } 
     }
     var postData = JSON.stringify(permissions);
