@@ -262,7 +262,6 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       permissions = {
         isA: 'Permissions',
         readers: [user],
-        writers: [user],
         updaters: [user],
         governs: {
           _self: resourceURL,
@@ -274,16 +273,19 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       }  
     } else {
       if (permissions.governs === undefined) {
-        badRequest(serverRes, 'governs must be set for permissions')
+        permissions.governs = {}
+      }
+      if (permissions.governs._self === undefined) {
+        permissions.governs._self = resourceURL
       } else {
-        if (permissions.governs._self === undefined) {
-          permissions.governs._self = resourceURL
-        } else {
-          if (permissions.governs._self != resourceURL) {
-            badRequest(serverRes, 'value of governs must match resourceURL')
-          }
+        if (permissions.governs._self != resourceURL) {
+          badRequest(serverRes, 'value of governs must match resourceURL');
         }
       }
+      if (permissions.inheritsPermissionsOf === undefined && permissions.updaters === undefined) {
+        permissions.updaters = [user];
+        permissions.readers = permissions.readers || [user];
+      } 
     }
     var postData = JSON.stringify(permissions);
     var headers = {
