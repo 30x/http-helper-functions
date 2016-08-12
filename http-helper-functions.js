@@ -121,7 +121,7 @@ function methodNotAllowed(req, res, allow) {
 function notFound(req, res) {
   var body = 'Not Found. component: ' + process.env.COMPONENT + ' request-target: ' + req.url + ' method: ' + req.method + '\n';
   body = JSON.stringify(body);
-  res.writeHead(404, {'Content-Type': 'application/vnd.terrifically-simple+json',
+  res.writeHead(404, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)});
   res.end(body);
 }
@@ -164,7 +164,7 @@ function duplicate(res, err) {
 }   
 
 function found(req, res, body, etag, location) {
-  var headers =  {};
+  var headers =  {'Content-Type': 'application/vnd.terrifically-simple+json'};
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
