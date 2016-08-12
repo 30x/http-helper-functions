@@ -260,9 +260,11 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
   } else {
     if (permissions === null || permissions === undefined) {
       permissions = {
-        isA: 'Permissions',
-        grantsReadAcessTo: [user],
-        grantsUpdateAccessTo: [user],
+        _permissions: {
+          isA: 'Permissions',
+          grantsReadAcessTo: [user],
+          grantsUpdateAccessTo: [user]
+        },
         _governs: {
           _self: resourceURL,
           grantsReadAcessTo: [user],
@@ -282,9 +284,13 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
           badRequest(serverRes, 'value of _governs must match resourceURL');
         }
       }
-      if (permissions.inheritsPermissionsOf === undefined && permissions.grantsUpdateAccessTo === undefined) {
-        permissions.grantsUpdateAccessTo = [user];
-        permissions.grantsReadAcessTo = permissions.grantsReadAcessTo || [user];
+      var permissionsPermissons = permissions._permissions;
+      if (permissionsPermissons === undefined) {
+        permissions._permissions = permissionsPermissons = {};
+      }
+      if (permissionsPermissons.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
+        permissionsPermissons.grantsUpdateAccessTo = [user];
+        permissionsPermissons.grantsReadAcessTo = permissions.grantsReadAcessTo || [user];
       } 
     }
     var postData = JSON.stringify(permissions);
