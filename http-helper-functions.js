@@ -263,7 +263,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         isA: 'Permissions',
         grantsReadAcessTo: [user],
         grantsUpdateAccessTo: [user],
-        governs: {
+        _governs: {
           _self: resourceURL,
           grantsReadAcessTo: [user],
           grantsDeleteAcessTo: [user],
@@ -272,14 +272,14 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         }
       }  
     } else {
-      if (permissions.governs === undefined) {
-        permissions.governs = {}
+      if (permissions._governs === undefined) {
+        permissions._governs = {}
       }
-      if (permissions.governs._self === undefined) {
-        permissions.governs._self = resourceURL
+      if (permissions._governs._self === undefined) {
+        permissions._governs._self = resourceURL
       } else {
-        if (permissions.governs._self != resourceURL) {
-          badRequest(serverRes, 'value of governs must match resourceURL');
+        if (permissions._governs._self != resourceURL) {
+          badRequest(serverRes, 'value of _governs must match resourceURL');
         }
       }
       if (permissions.inheritsPermissionsOf === undefined && permissions.grantsUpdateAccessTo === undefined) {
