@@ -392,12 +392,12 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
 }
 
 function ifAllowedThen(req, res, property, action, callback) {
-  var resourceURL = PROTOCOL + '//' + req.host + req.url;
+  var resourceURL = PROTOCOL + '//' + req.headers.host + req.url;
   withAllowedDo(req, res, resourceURL, property, action, function(allowed) {
-    if (body === true) {
+    if (allowed === true) {
       callback();
     } else {
-      if (user !== null) {
+      if (req.getUser() !== null) {
         forbidden(req, res);
       } else { 
         unauthorized(req, res);
