@@ -121,7 +121,7 @@ function methodNotAllowed(req, res, allow) {
 function notFound(req, res) {
   var body = 'Not Found. component: ' + process.env.COMPONENT + ' request-target: ' + req.url + ' method: ' + req.method + '\n';
   body = JSON.stringify(body);
-  res.writeHead(404, {'Content-Type': 'application/json',
+  res.writeHead(404, {'Content-Type': 'application/vnd.terrifically-simple+json',
                       'Content-Length': Buffer.byteLength(body)});
   res.end(body);
 }
