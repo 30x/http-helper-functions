@@ -334,7 +334,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
   }
 }
 
-function withAllowedDo(req, serverRes, resourceURL, action, callback) {
+function withAllowedDo(req, serverRes, resourceURL, property, action, callback) {
   var user = getUser(req);
   var resourceURLs = Array.isArray(resourceURL) ? resourceURL : [resourceURL];
   var qs = resourceURLs.map(x => `resource=${x}`).join('&');
@@ -344,6 +344,9 @@ function withAllowedDo(req, serverRes, resourceURL, action, callback) {
   }
   if (action !== null) {
     permissionsURL += '&action=' + action;
+  }
+  if (property !== null) {
+    permissionsURL += '&property=' + property;
   }
   var headers = {
     'Accept': 'application/json'
@@ -382,9 +385,9 @@ function withAllowedDo(req, serverRes, resourceURL, action, callback) {
   clientReq.end();
 }
 
-function ifAllowedThen(req, res, action, callback) {
+function ifAllowedThen(req, res, property, action, callback) {
   var resourceURL = PROTOCOL + '//' + req.host + req.url;
-  withAllowedDo(req, res, resourceURL, action, function(allowed) {
+  withAllowedDo(req, res, resourceURL, property, action, function(allowed) {
     if (body === true) {
       callback();
     } else {
