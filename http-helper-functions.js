@@ -164,7 +164,7 @@ function duplicate(res, err) {
 }   
 
 function found(req, res, body, etag, location) {
-  var headers =  {'Content-Type': 'application/vnd.terrifically-simple+json'};
+  var headers =  {'Content-Type': 'application/json'};
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
