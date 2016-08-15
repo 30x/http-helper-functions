@@ -27,7 +27,7 @@ function withTeamsDo(req, res, user, callback) {
     var clientReq = http.request(options, function (clientResponse) {
       getClientResponseBody(clientResponse, function(body) {
         if (clientResponse.statusCode == 200) { 
-          var actors = JSON.parse(body);
+          var actors = JSON.parse(body).contents;
           internalizeURLs(actors, req.headers.host);
           actors.push(user);
           callback(actors);
