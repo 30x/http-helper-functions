@@ -3,17 +3,19 @@ var http = require('http');
 
 var PROTOCOL = process.env.PROTOCOL || 'http:';
 var INTERNALURLPREFIX = 'protocol://authority';
+var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER;
 
 function withTeamsDo(req, res, user, callback) {
   if (user !== null) {
     user = internalizeURL(user);
     var headers = {
-      'Accept': 'application/json'
+      'Accept': 'application/json',
+      'Host': req.headers.host
     }
     if (req.headers.authorization !== undefined) {
       headers.authorization = req.headers.authorization; 
     }
-    var hostParts = req.headers.host.split(':');
+    var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
       protocol: PROTOCOL,
       hostname: hostParts[0],
@@ -24,6 +26,7 @@ function withTeamsDo(req, res, user, callback) {
     if (hostParts.length > 1) {
       options.port = hostParts[1];
     }
+    console.log(options);
     var clientReq = http.request(options, function (clientResponse) {
       getClientResponseBody(clientResponse, function(body) {
         if (clientResponse.statusCode == 200) { 
@@ -296,13 +299,14 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
     var postData = JSON.stringify(permissions);
     var headers = {
       'Accept': 'application/json',
+      'Host': serverReq.headers.host,
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(postData)
     }
     if (serverReq.headers.authorization) {
       headers.authorization = serverReq.headers.authorization; 
     }
-    var hostParts = serverReq.headers.host.split(':');
+    var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
       protocol: PROTOCOL,
       hostname: hostParts[0],
@@ -355,12 +359,13 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
     permissionsURL += '&property=' + property;
   }
   var headers = {
+    'Host': req.headers.host,
     'Accept': 'application/json'
   }
   if (req.headers.authorization) {
     headers.authorization = req.headers.authorization; 
   }
-  var hostParts = req.headers.host.split(':');
+  var hostParts = INTERNAL_ROUTER.split(':');
   var options = {
     protocol: PROTOCOL,
     hostname: hostParts[0],
