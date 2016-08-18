@@ -26,7 +26,6 @@ function withTeamsDo(req, res, user, callback) {
     if (hostParts.length > 1) {
       options.port = hostParts[1];
     }
-    console.log(options);
     var clientReq = http.request(options, function (clientResponse) {
       getClientResponseBody(clientResponse, function(body) {
         if (clientResponse.statusCode == 200) { 
