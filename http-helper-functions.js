@@ -139,7 +139,7 @@ function forbidden(req, res) {
 function unauthorized(req, res) {
   var body = 'Unauthorized. request-target: ' + req.url;
   body = JSON.stringify(body);
-  res.writeHead(403, {'Content-Type': 'application/json',
+  res.writeHead(401, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)});
   res.end(body);
 }
@@ -472,29 +472,19 @@ function toHTML(body) {
         return value
       }  
     } else if (typeof value == 'number') {
-      return `${value}`
+      return value.toString()
     } else if (Array.isArray(value)) {
       var rslt = value.map(x => `<li>${valueToHTML(x, indent)}</li>`)
       return `<ol>${rslt.join('')}</ol>`
     } else if (typeof value == 'object') {
-      var rslt = [];
-      for (var name in value) {
-        rslt.push(propToHTML(name, value[name], indent+increment));
-      }
+      var rslt = Object.keys(value).map(name => propToHTML(name, value[name], indent+increment));
       return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('<br>')}</div>`;
     }
   }
   function propToHTML(name, value, indent) {
     return `<span property="${name}">${name}: ${valueToHTML(value, indent)}</span>`
   }
-  return `<!DOCTYPE html>
-<html>
-  <head>
-  </head>
-  <body>
-  ${valueToHTML(body, -increment)}
-  </body>
-</html>`
+  return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`
 } 
 
 exports.getServerPostBody = getServerPostBody;
