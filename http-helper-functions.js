@@ -166,7 +166,8 @@ function duplicate(res, err) {
 }   
 
 function found(req, res, body, etag, location) {
-  var headers =  {'Content-Type': 'application/json'};
+  var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1;
+  var headers = wantsHTML ? {'Content-Type': 'text/html'} :  {'Content-Type': 'application/json'};
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
@@ -191,9 +192,11 @@ function created(req, res, body, location, etag) {
 
 function respond(req, res, status, headers, body) {
   if (body !== undefined) {
-    headers['Content-Type'] = 'application/json';
+    if (!'Content-Type' in headers) {
+      headers['Content-Type'] = 'application/json';
+    }
     externalizeURLs(body, req.headers.host);
-    body = JSON.stringify(body);
+    body = headers['Content-Type'] == 'text/html' ? toHTML(body) : JSON.stringify(body);
     body += '\n';
     headers['Content-Length'] = Buffer.byteLength(body);
     res.writeHead(status, headers);
@@ -459,6 +462,41 @@ function setStandardCreationProperties(req, resource, user) {
   return null;
 }
 
+function toHTML(body) {
+  const increment = 25;
+  function valueToHTML(value, indent) {
+    if (typeof value == 'string') {
+      if (value.lastIndexOf('http', 0) > -1) {
+        return `<a href="${value}">${value}</a>`
+      } else {
+        return value
+      }  
+    } else if (typeof value == 'number') {
+      return `${value}`
+    } else if (Array.isArray(value)) {
+      var rslt = value.map(x => `<li>${valueToHTML(x, indent)}</li>`)
+      return `<ol>${rslt.join('')}</ol>`
+    } else if (typeof value == 'object') {
+      var rslt = [];
+      for (var name in value) {
+        rslt.push(propToHTML(name, value[name], indent+increment));
+      }
+      return `<div style="padding-left:${indent+increment}px">${rslt.join('<br>')}</div>`;
+    }
+  }
+  function propToHTML(name, value, indent) {
+    return `<span>${name}: ${valueToHTML(value, indent)}</span>`
+  }
+  return `<!DOCTYPE html>
+<html>
+  <head>
+  </head>
+  <body>
+  ${valueToHTML(body, -increment)}
+  </body>
+</html>`
+} 
+
 exports.getServerPostBody = getServerPostBody;
 exports.getClientResponseBody = getClientResponseBody;
 exports.methodNotAllowed = methodNotAllowed;
@@ -482,3 +520,4 @@ exports.createPermissonsFor = createPermissonsFor;
 exports.setStandardCreationProperties = setStandardCreationProperties;
 exports.getUserFromToken = getUserFromToken;
 exports.withTeamsDo=withTeamsDo;
+exports.toHTML=toHTML
