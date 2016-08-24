@@ -480,11 +480,11 @@ function toHTML(body) {
       return `<ol datatype="list">${rslt.join('')}</ol>`
     } else if (typeof value == 'object') {
       var rslt = Object.keys(value).map(name => propToHTML(name, value[name], indent+increment));
-      return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('<br>')}</div>`;
+      return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('')}</div>`;
     }
   }
   function propToHTML(name, value, indent) {
-    return `<span property="${name}">${name}: ${valueToHTML(value, indent)}</span>`
+    return `<div property="${name}">${name}: ${valueToHTML(value, indent)}</div>`
   }
   return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`
 } 
