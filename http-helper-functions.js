@@ -467,15 +467,17 @@ function toHTML(body) {
   function valueToHTML(value, indent) {
     if (typeof value == 'string') {
       if (value.lastIndexOf('http', 0) > -1) {
-        return `<a href="${value}">${value}</a>`
+        return `<a href="${value}" datatype="url">${value}</a>`;
       } else {
-        return value
+        return `<span datatype="string">${value}</span>`;
       }  
     } else if (typeof value == 'number') {
-      return value.toString()
+      return `<span datatype="number">${value.toString()}</span>`;
+    } else if (typeof value == 'boolean') {
+      return `<span datatype="boolean">${value.toString()}</span>`;
     } else if (Array.isArray(value)) {
       var rslt = value.map(x => `<li>${valueToHTML(x, indent)}</li>`)
-      return `<ol>${rslt.join('')}</ol>`
+      return `<ol datatype="list">${rslt.join('')}</ol>`
     } else if (typeof value == 'object') {
       var rslt = Object.keys(value).map(name => propToHTML(name, value[name], indent+increment));
       return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('<br>')}</div>`;
