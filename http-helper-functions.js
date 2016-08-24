@@ -481,11 +481,11 @@ function toHTML(body) {
       for (var name in value) {
         rslt.push(propToHTML(name, value[name], indent+increment));
       }
-      return `<div style="padding-left:${indent+increment}px">${rslt.join('<br>')}</div>`;
+      return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('<br>')}</div>`;
     }
   }
   function propToHTML(name, value, indent) {
-    return `<span>${name}: ${valueToHTML(value, indent)}</span>`
+    return `<span property="${name}">${name}: ${valueToHTML(value, indent)}</span>`
   }
   return `<!DOCTYPE html>
 <html>
