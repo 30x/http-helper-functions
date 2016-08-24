@@ -404,7 +404,7 @@ function ifAllowedThen(req, res, property, action, callback) {
     if (allowed === true) {
       callback();
     } else {
-      if (req.getUser() !== null) {
+      if (getUser(req) !== null) {
         forbidden(req, res);
       } else { 
         unauthorized(req, res);
