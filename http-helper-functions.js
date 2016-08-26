@@ -466,7 +466,7 @@ function toHTML(body) {
   const increment = 25;
   function valueToHTML(value, indent) {
     if (typeof value == 'string') {
-      if (value.lastIndexOf('http', 0) > -1) {
+      if (value.lastIndexOf('http', 0) > -1 || value.lastIndexOf('./', 0) > -1 || value.lastIndexOf('/', 0) > -1) {
         return `<a href="${value}" datatype="url">${value}</a>`;
       } else {
         return `<span datatype="string">${value}</span>`;
@@ -476,17 +476,17 @@ function toHTML(body) {
     } else if (typeof value == 'boolean') {
       return `<span datatype="boolean">${value.toString()}</span>`;
     } else if (Array.isArray(value)) {
-      var rslt = value.map(x => `<li>${valueToHTML(x, indent)}</li>`)
-      return `<ol datatype="list">${rslt.join('')}</ol>`
+      var rslt = value.map(x => `<li>${valueToHTML(x, indent)}</li>`);
+      return `<ol datatype="list">${rslt.join('')}</ol>`;
     } else if (typeof value == 'object') {
       var rslt = Object.keys(value).map(name => propToHTML(name, value[name], indent+increment));
       return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('')}</div>`;
     }
   }
   function propToHTML(name, value, indent) {
-    return `<div property="${name}">${name}: ${valueToHTML(value, indent)}</div>`
+    return `<div property="${name}">${name}: ${valueToHTML(value, indent)}</div>`;
   }
-  return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`
+  return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`;
 } 
 
 exports.getServerPostBody = getServerPostBody;
