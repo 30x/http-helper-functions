@@ -1,8 +1,8 @@
 'use strict';
 var http = require('http');
 
-var PROTOCOL = process.env.PROTOCOL || 'http:';
-var INTERNALURLPREFIX = 'protocol://authority';
+var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
+var INTERNALURLPREFIX = 'protocol://authority/';
 var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER;
 
 function withTeamsDo(req, res, user, callback) {
@@ -17,7 +17,7 @@ function withTeamsDo(req, res, user, callback) {
     }
     var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
-      protocol: PROTOCOL,
+      protocol: `${INTERNAL_SCHEME}:`,
       hostname: hostParts[0],
       path: '/teams?' + user,
       method: 'GET',
@@ -171,7 +171,7 @@ function found(req, res, body, etag, location) {
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
-    headers['Content-Location'] = PROTOCOL + '//' + req.headers.host + req.url; //todo - handle case where req.url includes http://authority
+    headers['Content-Location'] = '//' + req.headers.host + req.url; //todo - handle case where req.url includes http://authority
   }
   if (etag !== undefined) {
     headers['Etag'] = etag;
@@ -210,10 +210,13 @@ function respond(req, res, status, headers, body) {
 function internalizeURL(anURL, authority) {
   var httpString = 'http://' + authority;
   var httpsString = 'https://' + authority;  
+  var schemelessString = '//' + authority;  
   if (anURL.lastIndexOf(httpString, 0) === 0) {
     return INTERNALURLPREFIX + anURL.substring(httpString.length);
   } else if (anURL.lastIndexOf(httpsString, 0) === 0) {
     return INTERNALURLPREFIX + anURL.substring(httpsString.length);
+  } else if (anURL.lastIndexOf(schemelessString, 0) === 0) {
+    return INTERNALURLPREFIX + anURL.substring(schemelessString.length);
   } else {
     return anURL;
   }
@@ -251,7 +254,7 @@ function externalizeURLs(jsObject, authority) {
     }
   } else if (typeof jsObject == 'string') {
     if (jsObject.lastIndexOf(INTERNALURLPREFIX, 0) === 0) {
-      var prefix = PROTOCOL + '//' + authority;
+      var prefix = '//' + authority;
       return prefix + jsObject.substring(INTERNALURLPREFIX.length);
     }
   }             
@@ -310,7 +313,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
     }
     var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
-      protocol: PROTOCOL,
+      protocol: `${INTERNAL_SCHEME}:`,
       hostname: hostParts[0],
       path: '/permissions',
       method: 'POST',
@@ -369,7 +372,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
   }
   var hostParts = INTERNAL_ROUTER.split(':');
   var options = {
-    protocol: PROTOCOL,
+    protocol: `${INTERNAL_SCHEME}:`,
     hostname: hostParts[0],
     path: permissionsURL,
     method: 'GET',
@@ -399,7 +402,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
 }
 
 function ifAllowedThen(req, res, property, action, callback) {
-  var resourceURL = PROTOCOL + '//' + req.headers.host + req.url;
+  var resourceURL = '//' + req.headers.host + req.url;
   withAllowedDo(req, res, resourceURL, property, action, function(allowed) {
     if (allowed === true) {
       callback();
