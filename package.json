@@ -8,12 +8,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mpnally/http-helper-functions.git"
+    "url": "git+https://github.com/30x/http-helper-functions.git"
   },
   "author": "Martin Nally",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/mpnally/http-helper-functions/issues"
+    "url": "https://github.com/30x/http-helper-functions/issues"
   },
-  "homepage": "https://github.com/mpnally/http-helper-functions#readme"
+  "homepage": "https://github.com/30x/http-helper-functions#readme"
 }
