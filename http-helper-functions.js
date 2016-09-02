@@ -4,6 +4,7 @@ var http = require('http');
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
 var INTERNALURLPREFIX = 'protocol://authority/';
 var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER;
+var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET;
 
 function withTeamsDo(req, res, user, callback) {
   if (user !== null) {
@@ -14,6 +15,9 @@ function withTeamsDo(req, res, user, callback) {
     }
     if (req.headers.authorization !== undefined) {
       headers.authorization = req.headers.authorization; 
+    }
+    if (SHIPYARD_PRIVATE_SECRET !== undefined) {
+      headers.x_routing_api_key = SHIPYARD_PRIVATE_SECRET;
     }
     var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
@@ -311,6 +315,9 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
     if (serverReq.headers.authorization) {
       headers.authorization = serverReq.headers.authorization; 
     }
+    if (SHIPYARD_PRIVATE_SECRET !== undefined) {
+      headers.x_routing_api_key = SHIPYARD_PRIVATE_SECRET;
+    }
     var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
       protocol: `${INTERNAL_SCHEME}:`,
@@ -369,6 +376,9 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
   }
   if (req.headers.authorization) {
     headers.authorization = req.headers.authorization; 
+  }
+  if (SHIPYARD_PRIVATE_SECRET !== undefined) {
+    headers.x_routing_api_key = SHIPYARD_PRIVATE_SECRET;
   }
   var hostParts = INTERNAL_ROUTER.split(':');
   var options = {
