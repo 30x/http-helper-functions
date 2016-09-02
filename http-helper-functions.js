@@ -1,5 +1,5 @@
 'use strict';
-var http = require('http');
+const http = require('http');
 
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
 var INTERNALURLPREFIX = 'protocol://authority/';
@@ -218,6 +218,7 @@ function internalizeURL(anURL, authority) {
   var httpString = 'http://' + authority;
   var httpsString = 'https://' + authority;  
   var schemelessString = '//' + authority;  
+  anURL = decodeURI(anURL);
   if (anURL.lastIndexOf(httpString, 0) === 0) {
     return INTERNALURLPREFIX + anURL.substring(httpString.length);
   } else if (anURL.lastIndexOf(httpsString, 0) === 0) {
