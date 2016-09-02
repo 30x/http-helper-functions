@@ -17,7 +17,7 @@ function withTeamsDo(req, res, user, callback) {
       headers.authorization = req.headers.authorization; 
     }
     if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-      headers.x_routing_api_key = SHIPYARD_PRIVATE_SECRET;
+      headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET;
     }
     var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
@@ -316,7 +316,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       headers.authorization = serverReq.headers.authorization; 
     }
     if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-      headers.x_routing_api_key = SHIPYARD_PRIVATE_SECRET;
+      headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET;
     }
     var hostParts = INTERNAL_ROUTER.split(':');
     var options = {
@@ -378,7 +378,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
     headers.authorization = req.headers.authorization; 
   }
   if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-    headers.x_routing_api_key = SHIPYARD_PRIVATE_SECRET;
+    headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET;
   }
   var hostParts = INTERNAL_ROUTER.split(':');
   var options = {
