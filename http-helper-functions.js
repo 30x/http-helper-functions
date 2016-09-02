@@ -218,7 +218,7 @@ function internalizeURL(anURL, authority) {
   var httpString = 'http://' + authority;
   var httpsString = 'https://' + authority;  
   var schemelessString = '//' + authority;  
-  anURL = decodeURI(anURL);
+  anURL = decodeURIComponent(anURL);
   if (anURL.lastIndexOf(httpString, 0) === 0) {
     return INTERNALURLPREFIX + anURL.substring(httpString.length);
   } else if (anURL.lastIndexOf(httpsString, 0) === 0) {
