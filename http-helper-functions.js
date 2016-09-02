@@ -4,7 +4,10 @@ var http = require('http');
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
 var INTERNALURLPREFIX = 'protocol://authority/';
 var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER;
-var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET;
+var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET
+if (SHIPYARD_PRIVATE_SECRET !== undefined) {
+  SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64');
+}
 
 function withTeamsDo(req, res, user, callback) {
   if (user !== null) {
