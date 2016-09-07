@@ -497,7 +497,7 @@ function toHTML(body) {
       return `<ol${name === undefined ? '': ` property="${name}"`}>${rslt.join('')}</ol>`;
     } else if (typeof value == 'object') {
       var rslt = Object.keys(value).map(name => propToHTML(name, value[name], indent+increment));
-      return `<div ${value._self === undefined ? '' : `resource=${value._self} `}style="padding-left:${indent+increment}px">${rslt.join('')}</div>`;
+      return `<div${value._self === undefined ? '' : ` resource=${value._self}`} style="padding-left:${indent+increment}px">${rslt.join('')}</div>`;
     }
   }
   function propToHTML(name, value, indent) {
