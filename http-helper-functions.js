@@ -9,52 +9,36 @@ if (SHIPYARD_PRIVATE_SECRET !== undefined) {
   SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64');
 }
 
-function withTeamsDo(req, res, user, callback) {
-  if (user !== null) {
-    user = internalizeURL(user);
-    var headers = {
-      'Accept': 'application/json',
-      'Host': req.headers.host
-    }
-    if (req.headers.authorization !== undefined) {
-      headers.authorization = req.headers.authorization; 
-    }
-    if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-      headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET;
-    }
-    var hostParts = INTERNAL_ROUTER.split(':');
-    var options = {
-      protocol: `${INTERNAL_SCHEME}:`,
-      hostname: hostParts[0],
-      path: '/teams?' + user,
-      method: 'GET',
-      headers: headers
-    };
-    if (hostParts.length > 1) {
-      options.port = hostParts[1];
-    }
-    var clientReq = http.request(options, function (clientResponse) {
-      getClientResponseBody(clientResponse, function(body) {
-        if (clientResponse.statusCode == 200) { 
-          var actors = JSON.parse(body).contents;
-          internalizeURLs(actors, req.headers.host);
-          actors.push(user);
-          callback(actors);
-        } else {
-          var err = `withTeamsDo: unable to retrieve /teams?user for user ${user} statusCode ${clientResponse.statusCode}`
-          console.log(err)
-          internalError(res, err);
-        }
-      });
-    });
-    clientReq.on('error', function (err) {
-      console.log(`withTeamsDo: error ${err}`)
-      internalError(res, err);
-    });
-    clientReq.end();
-  } else {
-    callback(null);
+function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, callback) {
+  var headers = {
+    'Accept': 'application/json',
+    'Host': serverReq.headers.host
   }
+  if (body) {
+      headers['Content-Type'] = 'application/json'
+      headers['Content-Length'] = Buffer.byteLength(body)
+  }
+  if (serverReq.headers.authorization !== undefined)
+    headers.authorization = serverReq.headers.authorization; 
+  if (SHIPYARD_PRIVATE_SECRET !== undefined)
+    headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
+  var hostParts = INTERNAL_ROUTER.split(':')
+  var options = {
+    protocol: `${INTERNAL_SCHEME}:`,
+    hostname: hostParts[0],
+    path: pathRelativeURL,
+    method: method,
+    headers: headers
+  }
+  if (hostParts.length > 1)
+    options.port = hostParts[1]
+  var clientReq = http.request(options, callback)
+  clientReq.on('error', function (err) {
+    console.log(`sendInternalRequest: error ${err}`)
+    internalError(res, err)
+  });
+  if (body) clientReq.write(body)
+  clientReq.end();
 }
 
 function getServerPostBody(req, res, callback) {
@@ -310,31 +294,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       } 
     }
     var postData = JSON.stringify(permissions);
-    var headers = {
-      'Accept': 'application/json',
-      'Host': serverReq.headers.host,
-      'Content-Type': 'application/json',
-      'Content-Length': Buffer.byteLength(postData)
-    }
-    if (serverReq.headers.authorization) {
-      headers.authorization = serverReq.headers.authorization; 
-    }
-    if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-      headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET;
-    }
-    var hostParts = INTERNAL_ROUTER.split(':');
-    var options = {
-      protocol: `${INTERNAL_SCHEME}:`,
-      hostname: hostParts[0],
-      path: '/permissions',
-      method: 'POST',
-      headers: headers
-    };
-    if (hostParts.length > 1) {
-      options.port = hostParts[1];
-    }
-    var body = JSON.stringify(permissions);
-    var clientReq = http.request(options, function (clientRes) {
+    sendInternalRequest(serverReq, serverRes, '/permissions', 'POST', postData, function (clientRes) {
       getClientResponseBody(clientRes, function(body) {
         if (clientRes.statusCode == 201) { 
           body = JSON.parse(body);
@@ -352,11 +312,6 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         }
       });
     });
-    clientReq.on('error', function (err) {
-      internalError(serverRes, err);
-    });
-    clientReq.write(postData);
-    clientReq.end();
   }
 }
 
@@ -374,28 +329,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
   if (property !== null) {
     permissionsURL += '&property=' + property;
   }
-  var headers = {
-    'Host': req.headers.host,
-    'Accept': 'application/json'
-  }
-  if (req.headers.authorization) {
-    headers.authorization = req.headers.authorization; 
-  }
-  if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-    headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET;
-  }
-  var hostParts = INTERNAL_ROUTER.split(':');
-  var options = {
-    protocol: `${INTERNAL_SCHEME}:`,
-    hostname: hostParts[0],
-    path: permissionsURL,
-    method: 'GET',
-    headers: headers
-  };
-  if (hostParts.length > 1) {
-    options.port = hostParts[1];
-  }
-  var clientReq = http.request(options, function (clientRes) {
+  sendInternalRequest(req, serverRes, permissionsURL, 'GET', undefined, function (clientRes) {
     getClientResponseBody(clientRes, function(body) {
       try {
         body = JSON.parse(body);
@@ -409,10 +343,6 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
       }
     });
   });
-  clientReq.on('error', function (err) {
-    internalError(serverRes, `failed permissions request: ${err} URL: ${permissionsURL}`);
-  });
-  clientReq.end();
 }
 
 function ifAllowedThen(req, res, property, action, callback) {
@@ -528,5 +458,5 @@ exports.internalError = internalError;
 exports.createPermissonsFor = createPermissonsFor;
 exports.setStandardCreationProperties = setStandardCreationProperties;
 exports.getUserFromToken = getUserFromToken;
-exports.withTeamsDo=withTeamsDo;
+exports.sendInternalRequest=sendInternalRequest;
 exports.toHTML=toHTML
