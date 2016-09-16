@@ -246,7 +246,7 @@ function externalizeURLs(jsObject, authority) {
     }
   } else if (typeof jsObject == 'string') {
     if (jsObject.lastIndexOf(INTERNALURLPREFIX, 0) === 0) {
-      var prefix = '//' + authority;
+      var prefix = `//${authority}/`;
       return prefix + jsObject.substring(INTERNALURLPREFIX.length);
     }
   }             
@@ -334,7 +334,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
       try {
         body = JSON.parse(body);
       } catch (e) {
-        console.error('withAllowedDo: JSON parse failed. options:', options, 'body:', body, 'error:', e);
+        console.error('withAllowedDo: JSON parse failed. url:', permissionsURL, 'body:', body, 'error:', e);
       }
       if (clientRes.statusCode == 200) { 
         callback(body);
