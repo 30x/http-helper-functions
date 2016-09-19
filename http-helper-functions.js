@@ -2,7 +2,7 @@
 const http = require('http');
 
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
-var INTERNALURLPREFIX = 'protocol://authority/';
+var INTERNALURLPREFIX = 'protocol://authority';
 var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER;
 var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET
 if (SHIPYARD_PRIVATE_SECRET !== undefined) {
@@ -246,7 +246,7 @@ function externalizeURLs(jsObject, authority) {
     }
   } else if (typeof jsObject == 'string') {
     if (jsObject.lastIndexOf(INTERNALURLPREFIX, 0) === 0) {
-      var prefix = `//${authority}/`;
+      var prefix = `//${authority}`;
       return prefix + jsObject.substring(INTERNALURLPREFIX.length);
     }
   }             
@@ -288,7 +288,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       if (permissionsPermissons === undefined) {
         permissions._permissions = permissionsPermissons = {};
       }
-      if (permissionsPermissons.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
+      if (permissions._resource.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
         permissionsPermissons.grantsUpdateAccessTo = [user];
         permissionsPermissons.grantsReadAcessTo = permissions.grantsReadAcessTo || [user];
       } 
