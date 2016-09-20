@@ -112,7 +112,7 @@ function methodNotAllowed(req, res, allow) {
 }
 
 function notFound(req, res) {
-  var body = 'Not Found. component: ' + process.env.COMPONENT + ' request-target: ' + req.url + ' method: ' + req.method + '\n';
+  var body = `Not Found. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`;
   body = JSON.stringify(body);
   res.writeHead(404, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)});
@@ -120,7 +120,7 @@ function notFound(req, res) {
 }
 
 function forbidden(req, res) {
-  var body = 'Forbidden. request-target: ' + req.url + ' method: ' + req.method + '\n';
+  var body = `Forbidden. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req)}\n`;
   body = JSON.stringify(body);
   res.writeHead(403, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)});
@@ -253,6 +253,7 @@ function externalizeURLs(jsObject, authority) {
   return jsObject
 }  
 
+// move somewhere else?
 function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, callback) {
   var user = getUser(serverReq);
   if (user == null) {
@@ -262,15 +263,15 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       permissions = {
         _permissions: {
           isA: 'Permissions',
-          grantsReadAcessTo: [user],
+          grantsReadAccessTo: [user],
           grantsUpdateAccessTo: [user]
         },
         _resource: {
           _self: resourceURL,
-          grantsReadAcessTo: [user],
-          grantsDeleteAcessTo: [user],
+          grantsReadAccessTo: [user],
+          grantsDeleteAccessTo: [user],
           grantsUpdateAccessTo: [user],
-          grantsCreateAcessTo: [user]
+          grantsCreateAccessTo: [user]
         }
       }  
     } else {
@@ -290,7 +291,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       }
       if (permissions._resource.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
         permissionsPermissons.grantsUpdateAccessTo = [user];
-        permissionsPermissons.grantsReadAcessTo = permissions.grantsReadAcessTo || [user];
+        permissionsPermissons.grantsReadAccessTo = permissions.grantsReadAccessTo || [user];
       } 
     }
     var postData = JSON.stringify(permissions);
@@ -315,6 +316,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
   }
 }
 
+// move somewhere else?
 function withAllowedDo(req, serverRes, resourceURL, property, action, callback) {
   var user = getUser(req);
   var resourceURLs = Array.isArray(resourceURL) ? resourceURL : [resourceURL];
@@ -339,12 +341,13 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
       if (clientRes.statusCode == 200) { 
         callback(body);
       } else {
-        internalError(serverRes, `failed permissions request: ${clientRes.statusCode} URL: ${permissionsURL} body: ${body}`);
+        internalError(serverRes, `failed permissions request: statusCode: ${clientRes.statusCode} URL: ${permissionsURL} body: ${JSON.stringify(body)}`);
       }
     });
   });
 }
 
+// move somewhere else?
 function ifAllowedThen(req, res, property, action, callback) {
   var resourceURL = '//' + req.headers.host + req.url;
   withAllowedDo(req, res, resourceURL, property, action, function(allowed) {
