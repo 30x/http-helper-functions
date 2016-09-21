@@ -169,9 +169,9 @@ function duplicate(res, err) {
   res.end(body);
 }   
 
-function found(req, res, body, etag, location) {
+function found(req, res, body, etag, location, contentType) {
   var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1;
-  var headers = wantsHTML ? {'Content-Type': 'text/html'} :  {'Content-Type': 'application/json'};
+  var headers = contentType ? {'Content-Type': contentType} : wantsHTML ? {'Content-Type': 'text/html'} :  {'Content-Type': 'application/json'};
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
@@ -222,6 +222,8 @@ function internalizeURL(anURL, authority) {
     return INTERNALURLPREFIX + anURL.substring(httpsString.length);
   } else if (anURL.lastIndexOf(schemelessString, 0) === 0) {
     return INTERNALURLPREFIX + anURL.substring(schemelessString.length);
+  } else if (anURL.lastIndexOf('/', 0) === 0) {
+    return INTERNALURLPREFIX + anURL;
   } else {
     return anURL;
   }
