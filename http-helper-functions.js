@@ -41,9 +41,8 @@ function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, call
   clientReq.end();
 }
 
-function getServerPostBody(req, res, callback) {
+function getServerPostObject(req, res, callback) {
   var body = '';
-
   req.on('data', function (data) {
     if (body.length + data.length > 1e6){
       req.connection.destroy();
@@ -51,18 +50,32 @@ function getServerPostBody(req, res, callback) {
     body += data;
   });
   req.on('end', function () {
-    var jso;
-    try {
-      jso = JSON.parse(body);
+    var contentType = req.headers['content-type']
+    if (contentType === undefined || (contentType.lastIndexOf('application/', 0) > -1 && contentType.lastIndexOf('json') == contentType.length-4)) {
+      var jso;
+      try {
+        jso = JSON.parse(body);
+      }
+      catch (err) {
+        badRequest('invalid JSON: ' + err.message)
+      }
+      if (jso)
+        callback(req, res, jso)
+    } else
+      badRequest(res, 'input must be JSON')
+  });
+}
+
+function getServerPostText(req, res, callback) {
+  var body = '';
+  req.on('data', function (data) {
+    if (body.length + data.length > 1e6){
+      req.connection.destroy();
     }
-    catch (err) {
-      res.writeHead(400, {'Content-Type': 'text/plain'});
-      res.write('invalid JSON: ' + err.message);
-      res.end();          
-    }
-    if (jso !== undefined) {
-      callback(req, res, jso);
-    }
+    body += data;
+  });
+  req.on('end', function () {
+    callback(req, res, body);
   });
 }
 
@@ -348,8 +361,8 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
 }
 
 // move somewhere else?
-function ifAllowedThen(req, res, property, action, callback) {
-  var resourceURL = '//' + req.headers.host + req.url;
+function ifAllowedThen(req, res, resourceURL, property, action, callback) {
+  resourceURL =  resourceURL || '//' + req.headers.host + req.url
   withAllowedDo(req, res, resourceURL, property, action, function(allowed) {
     if (allowed === true) {
       callback();
@@ -439,27 +452,28 @@ function toHTML(body) {
   return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`;
 } 
 
-exports.getServerPostBody = getServerPostBody;
-exports.getClientResponseBody = getClientResponseBody;
-exports.methodNotAllowed = methodNotAllowed;
-exports.notFound = notFound;
-exports.badRequest = badRequest;
-exports.duplicate = duplicate;
-exports.found = found;
-exports.created = created;
-exports.respond = respond;
-exports.internalizeURL = internalizeURL;
-exports.internalizeURLs = internalizeURLs;
-exports.externalizeURLs = externalizeURLs;
-exports.getUser = getUser;
-exports.forbidden = forbidden;
-exports.unauthorized = unauthorized;
-exports.ifAllowedThen = ifAllowedThen;
-exports.withAllowedDo = withAllowedDo;
-exports.mergePatch = mergePatch;
-exports.internalError = internalError;
-exports.createPermissonsFor = createPermissonsFor;
-exports.setStandardCreationProperties = setStandardCreationProperties;
-exports.getUserFromToken = getUserFromToken;
-exports.sendInternalRequest=sendInternalRequest;
+exports.getServerPostObject = getServerPostObject
+exports.getServerPostText = getServerPostText
+exports.getClientResponseBody = getClientResponseBody
+exports.methodNotAllowed = methodNotAllowed
+exports.notFound = notFound
+exports.badRequest = badRequest
+exports.duplicate = duplicate
+exports.found = found
+exports.created = created
+exports.respond = respond
+exports.internalizeURL = internalizeURL
+exports.internalizeURLs = internalizeURLs
+exports.externalizeURLs = externalizeURLs
+exports.getUser = getUser
+exports.forbidden = forbidden
+exports.unauthorized = unauthorized
+exports.ifAllowedThen = ifAllowedThen
+exports.withAllowedDo = withAllowedDo
+exports.mergePatch = mergePatch
+exports.internalError = internalError
+exports.createPermissonsFor = createPermissonsFor
+exports.setStandardCreationProperties = setStandardCreationProperties
+exports.getUserFromToken = getUserFromToken
+exports.sendInternalRequest=sendInternalRequest
 exports.toHTML=toHTML
