@@ -200,8 +200,8 @@ function respond(req, res, status, headers, body) {
       headers['Content-Type'] = 'application/json';
     }
     externalizeURLs(body, req.headers.host);
-    body = headers['Content-Type'] == 'text/html' ? toHTML(body) : JSON.stringify(body);
-    body += '\n';
+    var contentType = headers['Content-Type']
+    body = contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : contentType == 'application/json' ? JSON.stringify(body) : body.toString();
     headers['Content-Length'] = Buffer.byteLength(body);
     res.writeHead(status, headers);
     res.end(body);
