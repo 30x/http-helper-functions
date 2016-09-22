@@ -66,16 +66,16 @@ function getServerPostObject(req, res, callback) {
   });
 }
 
-function getServerPostText(req, res, callback) {
-  var body = '';
+function getServerPostBuffer(req, res, callback) {
+  var body = [];
   req.on('data', function (data) {
     if (body.length + data.length > 1e6){
       req.connection.destroy();
     }
-    body += data;
+    body.push(data);
   });
   req.on('end', function () {
-    callback(req, res, body);
+    callback(req, res, Buffer.concat(body));
   });
 }
 
@@ -455,7 +455,7 @@ function toHTML(body) {
 } 
 
 exports.getServerPostObject = getServerPostObject
-exports.getServerPostText = getServerPostText
+exports.getServerPostBuffer = getServerPostBuffer
 exports.getClientResponseBody = getClientResponseBody
 exports.methodNotAllowed = methodNotAllowed
 exports.notFound = notFound
