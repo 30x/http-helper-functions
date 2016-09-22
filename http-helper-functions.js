@@ -196,7 +196,7 @@ function created(req, res, body, location, etag) {
 
 function respond(req, res, status, headers, body) {
   if (body !== undefined) {
-    if (!'Content-Type' in headers) {
+    if (!('Content-Type' in headers)) {
       headers['Content-Type'] = 'application/json';
     }
     externalizeURLs(body, req.headers.host);
@@ -282,7 +282,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
           grantsUpdateAccessTo: [user]
         },
         _resource: {
-          _self: resourceURL,
+          self: resourceURL,
           grantsReadAccessTo: [user],
           grantsDeleteAccessTo: [user],
           grantsUpdateAccessTo: [user],
@@ -293,10 +293,10 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       if (permissions._resource === undefined) {
         permissions._resource = {}
       }
-      if (permissions._resource._self === undefined) {
-        permissions._resource._self = resourceURL
+      if (permissions._resource.self === undefined) {
+        permissions._resource.self = resourceURL
       } else {
-        if (permissions._resource._self != resourceURL) {
+        if (permissions._resource.self != resourceURL) {
           badRequest(serverRes, 'value of _resource must match resourceURL');
         }
       }
@@ -445,7 +445,7 @@ function toHTML(body) {
       return `<ol${name === undefined ? '': ` property="${name}"`}>${rslt.join('')}</ol>`;
     } else if (typeof value == 'object') {
       var rslt = Object.keys(value).map(name => propToHTML(name, value[name], indent+increment));
-      return `<div${value._self === undefined ? '' : ` resource=${value._self}`} style="padding-left:${indent+increment}px">${rslt.join('')}</div>`;
+      return `<div${value.self === undefined ? '' : ` resource=${value.self}`} style="padding-left:${indent+increment}px">${rslt.join('')}</div>`;
     }
   }
   function propToHTML(name, value, indent) {
