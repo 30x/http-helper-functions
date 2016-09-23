@@ -171,7 +171,7 @@ function duplicate(res, err) {
 
 function found(req, res, body, etag, location, contentType) {
   var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1;
-  var headers = contentType ? {'Content-Type': contentType} : wantsHTML ? {'Content-Type': 'text/html'} :  {'Content-Type': 'application/json'};
+  var headers = {'Content-Type': contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'};
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
@@ -201,7 +201,7 @@ function respond(req, res, status, headers, body) {
     }
     externalizeURLs(body, req.headers.host);
     var contentType = headers['Content-Type']
-    body = contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : contentType == 'application/json' ? JSON.stringify(body) : body.toString();
+    body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : contentType == 'application/json' ? JSON.stringify(body) : body.toString();
     headers['Content-Length'] = Buffer.byteLength(body);
     res.writeHead(status, headers);
     res.end(body);
