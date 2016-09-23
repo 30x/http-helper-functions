@@ -170,8 +170,7 @@ function duplicate(res, err) {
 }   
 
 function found(req, res, body, etag, location, contentType) {
-  var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1;
-  var headers = {'Content-Type': contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'};
+  var headers = {};
   if (location !== undefined) {
     headers['Content-Location'] = location;
   } else {
@@ -180,10 +179,10 @@ function found(req, res, body, etag, location, contentType) {
   if (etag !== undefined) {
     headers['Etag'] = etag;
   } 
-  respond(req, res, 200, headers, body);
+  respond(req, res, 200, headers, body, contentType);
 }
 
-function created(req, res, body, location, etag) {
+function created(req, res, body, location, etag, contentType) {
   var headers =  {};
   if (location !== undefined) {
     headers['Location'] = location;
@@ -191,11 +190,16 @@ function created(req, res, body, location, etag) {
   if (etag !== undefined) {
     headers['Etag'] = etag; 
   }
-  respond(req, res, 201, headers, body);
+  respond(req, res, 201, headers, body, contentType);
 }
 
-function respond(req, res, status, headers, body) {
+function respond(req, res, status, headers, body, contentType) {
   if (body !== undefined) {
+    // If contentType is provided, body is assumed to be the representation of the respource, read to be sent in the response. If
+    // contentType is not provided, the body is assumed to be the state of the resource in Javascript objects. As such, it is
+    // subject to content negotiation of the response format.
+    var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1;
+    headers['Content-Type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
     if (!('Content-Type' in headers)) {
       headers['Content-Type'] = 'application/json';
     }
