@@ -195,7 +195,7 @@ function created(req, res, body, location, etag, contentType) {
 
 function respond(req, res, status, headers, body, contentType) {
   if (body !== undefined) {
-    // If contentType is provided, body is assumed to be the representation of the respource, read to be sent in the response. If
+    // If contentType is provided, body is assumed to be the representation of the resource, ready to be sent in the response. If
     // contentType is not provided, the body is assumed to be the state of the resource in Javascript objects. As such, it is
     // subject to content negotiation of the response format.
     var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1;
@@ -283,7 +283,8 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         _permissions: {
           isA: 'Permissions',
           grantsReadAccessTo: [user],
-          grantsUpdateAccessTo: [user]
+          grantsUpdateAccessTo: [user],
+          grantsDeleteAccessTo: [user]
         },
         _resource: {
           self: resourceURL,
@@ -326,7 +327,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
           forbidden(serverReq, serverRes);
         } else {
           var err = {statusCode: clientRes.statusCode,
-            msg: 'failed to create permissions for ' + resourceURL + ' statusCode ' + clientRes.statusCode + ' message ' + JSON.stringify(clientRes.body)
+            msg: `failed to create permissions for ${resourceURL} statusCode ${clientRes.statusCode} message ${body}`
           }
           internalError(serverRes, err);
         }
