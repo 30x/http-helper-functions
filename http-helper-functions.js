@@ -97,7 +97,7 @@ function getUserFromToken(token) {
   } else {
     var claimsString = new Buffer(claims64[1], 'base64').toString();
     var claims = JSON.parse(claimsString);
-    return claims.user_id;
+    return claims.sub;
   }
 }
 
