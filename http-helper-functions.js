@@ -9,14 +9,20 @@ if (SHIPYARD_PRIVATE_SECRET !== undefined) {
   SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64');
 }
 
-function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, callback) {
-  var headers = {
-    'Accept': 'application/json',
-    'Host': serverReq.headers.host
+function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, headers, callback) {
+  if (typeof headers == 'function') {
+    callback = headers
+    headers = {}
   }
+  var keys = Object.keys(headers).map(x=>x.toLowerCase())
+  if (keys.indexOf('accept') == -1)
+    headers['accept'] = 'application/json'
+  if (keys.indexOf('host') == -1)
+    headers['host'] = serverReq.headers.host
   if (body) {
-      headers['Content-Type'] = 'application/json'
-      headers['Content-Length'] = Buffer.byteLength(body)
+    if (keys.indexOf('content-type') == -1)
+      headers['content-type'] = 'application/json'
+    headers['content-length'] = Buffer.byteLength(body)
   }
   if (serverReq.headers.authorization !== undefined)
     headers.authorization = serverReq.headers.authorization; 
