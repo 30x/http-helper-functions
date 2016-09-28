@@ -1,6 +1,6 @@
 {
   "name": "http-helper-functions",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "Some helper functions for working with the Node http module",
   "main": "http-helper-functions.js",
   "scripts": {
@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/30x/http-helper-functions/issues"
   },
-  "homepage": "https://github.com/30x/http-helper-functions#readme"
+  "homepage": "https://github.com/30x/http-helper-functions#readme",
+  "dependencies": {
+    "jsonpatch": "^3.0.1"
+  }
 }

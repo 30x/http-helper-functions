@@ -1,5 +1,6 @@
 'use strict';
-const http = require('http');
+const http = require('http')
+const jsonpatch= require('jsonpatch')
 
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
 var INTERNALURLPREFIX = 'protocol://authority';
@@ -414,6 +415,18 @@ function mergePatch(target, patch) {
   }
 }
 
+function applyPatch(req, res, target, patch, callback) {
+  if ('content-type' in req.headers) {
+    if (req.headers['content-type'] == 'application/merge-patch+json')
+      callback(mergePatch(target, patch))
+    else if (req.headers['content-type'] == 'application/json-patch+json')
+      callback(jsonpatch.apply_patch(target, patch))
+    else
+      badRequest(res, `unknown PATCH content-type: ${req.headers['content-type']}`)  
+  } else 
+    badRequest(res, 'PATCH headers missing content-type for patch')
+}
+
 function setStandardCreationProperties(req, resource, user) {
   if (resource.creator) {
     return 'may not set creator'
@@ -483,7 +496,7 @@ exports.forbidden = forbidden
 exports.unauthorized = unauthorized
 exports.ifAllowedThen = ifAllowedThen
 exports.withAllowedDo = withAllowedDo
-exports.mergePatch = mergePatch
+exports.applyPatch = applyPatch
 exports.internalError = internalError
 exports.createPermissonsFor = createPermissonsFor
 exports.setStandardCreationProperties = setStandardCreationProperties
