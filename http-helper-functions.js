@@ -104,7 +104,7 @@ function getUserFromToken(token) {
   } else {
     var claimsString = new Buffer(claims64[1], 'base64').toString();
     var claims = JSON.parse(claimsString);
-    return claims.sub;
+    return `${claims.iss}#${claims.sub}`;
   }
 }
 
@@ -350,7 +350,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
   var qs = resourceURLs.map(x => `resource=${x}`).join('&');
   var permissionsURL = `/is-allowed?${qs}`;
   if (user !== null) {
-    permissionsURL += '&user=' + user;
+    permissionsURL += '&user=' + user.replace('#', '%23');
   }
   if (action !== null) {
     permissionsURL += '&action=' + action;
