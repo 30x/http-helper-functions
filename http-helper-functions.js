@@ -293,7 +293,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
           grantsUpdateAccessTo: [user],
           grantsDeleteAccessTo: [user]
         },
-        _resource: {
+        _self: {
           self: resourceURL,
           grantsReadAccessTo: [user],
           grantsDeleteAccessTo: [user],
@@ -302,21 +302,21 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         }
       }  
     } else {
-      if (permissions._resource === undefined) {
-        permissions._resource = {}
+      if (permissions._self === undefined) {
+        permissions._self = {}
       }
-      if (permissions._resource.self === undefined) {
-        permissions._resource.self = resourceURL
+      if (permissions._self.self === undefined) {
+        permissions._self.self = resourceURL
       } else {
-        if (permissions._resource.self != resourceURL) {
-          badRequest(serverRes, 'value of _resource must match resourceURL');
+        if (permissions._self.self != resourceURL) {
+          badRequest(serverRes, 'value of _self must match resourceURL');
         }
       }
       var permissionsPermissons = permissions._permissions;
       if (permissionsPermissons === undefined) {
         permissions._permissions = permissionsPermissons = {};
       }
-      if (permissions._resource.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
+      if (permissions._self.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
         permissionsPermissons.grantsUpdateAccessTo = [user];
         permissionsPermissons.grantsReadAccessTo = permissions.grantsReadAccessTo || [user];
       } 
