@@ -287,38 +287,37 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
   } else {
     if (permissions === null || permissions === undefined) {
       permissions = {
+        _subject: resourceURL,
         _permissions: {
-          isA: 'Permissions',
-          grantsReadAccessTo: [user],
-          grantsUpdateAccessTo: [user],
-          grantsDeleteAccessTo: [user]
+          read: [user],
+          update: [user],
+          delete: [user]
         },
         _self: {
-          self: resourceURL,
-          grantsReadAccessTo: [user],
-          grantsDeleteAccessTo: [user],
-          grantsUpdateAccessTo: [user],
-          grantsCreateAccessTo: [user]
+          read: [user],
+          delete: [user],
+          update: [user],
+          create: [user]
         }
-      }  
+      }
     } else {
       if (permissions._self === undefined) {
         permissions._self = {}
       }
-      if (permissions._self.self === undefined) {
-        permissions._self.self = resourceURL
+      if (permissions._subject === undefined) {
+        permissions._subject = resourceURL
       } else {
-        if (permissions._self.self != resourceURL) {
-          badRequest(serverRes, 'value of _self must match resourceURL');
+        if (permissions._subject != resourceURL) {
+          badRequest(serverRes, 'value of _subject must match resourceURL');
         }
       }
       var permissionsPermissons = permissions._permissions;
       if (permissionsPermissons === undefined) {
         permissions._permissions = permissionsPermissons = {};
       }
-      if (permissions._self.inheritsPermissionsOf === undefined && permissionsPermissons.grantsUpdateAccessTo === undefined) {
-        permissionsPermissons.grantsUpdateAccessTo = [user];
-        permissionsPermissons.grantsReadAccessTo = permissions.grantsReadAccessTo || [user];
+      if (permissions._inheritsPermissionsOf === undefined && permissionsPermissons.update === undefined) {
+        permissionsPermissons.update = [user];
+        permissionsPermissons.read = permissions.read || [user];
       } 
     }
     var postData = JSON.stringify(permissions);
