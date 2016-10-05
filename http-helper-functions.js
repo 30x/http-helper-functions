@@ -478,20 +478,24 @@ function toHTML(body) {
   return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`;
 } 
 
+// The following function contains some code copied from https://github.com/broofa/node-uuid4 under MIT License
+// Copyright (c) 2010-2012 Robert Kieffer
+var toHex = []
+for (var val = 0; val < 256; val++) 
+  toHex[val] = (val + 0x100).toString(16).substr(1)
 function uuid4() {
   var buf = randomBytes(16)
   buf[6] = (buf[6] & 0x0f) | 0x40
   buf[8] = (buf[8] & 0x3f) | 0x80
-  var toHex = val => (val + 0x100).toString(16).substr(1)
   var i=0
-  return    toHex(buf[i++]) + toHex(buf[i++]) +
-            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
-            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
-            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
-            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
-            toHex(buf[i++]) + toHex(buf[i++]) +
-            toHex(buf[i++]) + toHex(buf[i++]) +
-            toHex(buf[i++]) + toHex(buf[i++])
+  return  toHex[buf[i++]] + toHex[buf[i++]] +
+          toHex[buf[i++]] + toHex[buf[i++]] + '-' +
+          toHex[buf[i++]] + toHex[buf[i++]] + '-' +
+          toHex[buf[i++]] + toHex[buf[i++]] + '-' +
+          toHex[buf[i++]] + toHex[buf[i++]] + '-' +
+          toHex[buf[i++]] + toHex[buf[i++]] +
+          toHex[buf[i++]] + toHex[buf[i++]] +
+          toHex[buf[i++]] + toHex[buf[i++]]
 }
 
 exports.getServerPostObject = getServerPostObject
