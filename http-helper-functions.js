@@ -478,7 +478,7 @@ function toHTML(body) {
   return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`;
 } 
 
-// The following function contains some code copied from https://github.com/broofa/node-uuid4 under MIT License
+// The following function adapted from https://github.com/broofa/node-uuid4 under MIT License
 // Copyright (c) 2010-2012 Robert Kieffer
 var toHex = Array(256)
 for (var val = 0; val < 256; val++) 
