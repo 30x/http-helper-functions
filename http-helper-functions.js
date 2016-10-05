@@ -65,7 +65,7 @@ function getServerPostObject(req, res, callback) {
         jso = JSON.parse(body);
       }
       catch (err) {
-        badRequest('invalid JSON: ' + err.message)
+        badRequest(res, 'invalid JSON: ' + err.message)
       }
       if (jso)
         callback(req, res, jso)
