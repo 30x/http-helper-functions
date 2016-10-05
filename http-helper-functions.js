@@ -480,7 +480,7 @@ function toHTML(body) {
 
 // The following function contains some code copied from https://github.com/broofa/node-uuid4 under MIT License
 // Copyright (c) 2010-2012 Robert Kieffer
-var toHex = []
+var toHex = Array(256)
 for (var val = 0; val < 256; val++) 
   toHex[val] = (val + 0x100).toString(16).substr(1)
 function uuid4() {
