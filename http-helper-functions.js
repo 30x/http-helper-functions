@@ -1,6 +1,7 @@
 'use strict';
 const http = require('http')
 const jsonpatch= require('jsonpatch')
+const randomBytes = require('crypto').randomBytes
 
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http';
 var INTERNALURLPREFIX = 'protocol://authority';
@@ -477,6 +478,22 @@ function toHTML(body) {
   return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`;
 } 
 
+function uuid4() {
+  var buf = randomBytes(16)
+  buf[6] = (buf[6] & 0x0f) | 0x40
+  buf[8] = (buf[8] & 0x3f) | 0x80
+  var toHex = val => (val + 0x100).toString(16).substr(1)
+  var i=0
+  return    toHex(buf[i++]) + toHex(buf[i++]) +
+            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
+            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
+            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
+            toHex(buf[i++]) + toHex(buf[i++]) + '-' +
+            toHex(buf[i++]) + toHex(buf[i++]) +
+            toHex(buf[i++]) + toHex(buf[i++]) +
+            toHex(buf[i++]) + toHex(buf[i++])
+}
+
 exports.getServerPostObject = getServerPostObject
 exports.getServerPostBuffer = getServerPostBuffer
 exports.getClientResponseBody = getClientResponseBody
@@ -502,3 +519,4 @@ exports.setStandardCreationProperties = setStandardCreationProperties
 exports.getUserFromToken = getUserFromToken
 exports.sendInternalRequest=sendInternalRequest
 exports.toHTML=toHTML
+exports.uuid4 = uuid4
