@@ -302,9 +302,6 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         }
       }
     } else {
-      if (permissions._self === undefined) {
-        permissions._self = {}
-      }
       if (permissions._subject === undefined) {
         permissions._subject = resourceURL
       } else {
@@ -313,12 +310,11 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         }
       }
       var permissionsPermissons = permissions._permissions;
-      if (permissionsPermissons === undefined) {
-        permissions._permissions = permissionsPermissons = {};
-      }
-      if (permissions._inheritsPermissionsOf === undefined && permissionsPermissons.update === undefined) {
+      if (permissions._inheritsPermissionsOf === undefined && (permissionsPermissons === undefined || permissionsPermissons.update === undefined)) {
+        if (permissionsPermissons === undefined) 
+          permissions._permissions = permissionsPermissons = {}
         permissionsPermissons.update = [user];
-        permissionsPermissons.read = permissions.read || [user];
+        permissionsPermissons.read = (permissions._self ? permissions._self.read: null) || [user];
       } 
     }
     var postData = JSON.stringify(permissions);
@@ -327,7 +323,7 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
         if (clientRes.statusCode == 201) { 
           body = JSON.parse(body);
           internalizeURLs(body, serverReq.headers.host);
-          callback(resourceURL, body);
+          callback(resourceURL, body, clientRes.headers);
         } else if (clientRes.statusCode == 400) {
           badRequest(serverRes, body);
         } else if (clientRes.statusCode == 403) {
