@@ -458,6 +458,7 @@ function uuid4() {
           toHex[buf[i++]] + toHex[buf[i++]] +
           toHex[buf[i++]] + toHex[buf[i++]]
 }
+// End of section of code adapted from https://github.com/broofa/node-uuid4 under MIT License
 
 exports.getServerPostObject = getServerPostObject
 exports.getServerPostBuffer = getServerPostBuffer

@@ -1,0 +1,8 @@
+http-helper-functions
+Copyright 2016 Apigee Corporation
+
+This product includes software developed at the
+Apigee Corporation (http://apigee.com/).
+
+The function uuid4 was adapted from https://github.com/broofa/node-uuid4 under MIT License, 
+copyright (c) 2010-2012 Robert Kieffer 
