@@ -63,6 +63,7 @@ function getServerPostObject(req, res, callback) {
       var jso
       try {
         jso = JSON.parse(body)
+        internalizeURLs(jso, req.headers.host)
       }
       catch (err) {
         badRequest(res, 'invalid JSON: ' + err.message)
@@ -90,7 +91,7 @@ function getClientResponseBody(res, callback) {
   res.setEncoding('utf8')
   var body = ''
   res.on('data', chunk => body += chunk)
-  res.on('end', () => callback(body))
+  res.on('end', function() {callback(body)})
 }
 
 function getUserFromToken(token) {
@@ -250,9 +251,10 @@ function externalizeURLs(jsObject, authority) {
     for (var i = 0; i < jsObject.length; i++)
       jsObject[i] = externalizeURLs(jsObject[i], authority)
   else if (typeof jsObject == 'object') 
-    for(var key in jsObject) 
+    for(var key in jsObject) {
       if (jsObject.hasOwnProperty(key)) 
         jsObject[key] = externalizeURLs(jsObject[key], authority)
+    }
   else if (typeof jsObject == 'string')
     if (jsObject.lastIndexOf(INTERNALURLPREFIX, 0) === 0) {
       var prefix = `//${authority}`
