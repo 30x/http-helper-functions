@@ -337,10 +337,7 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
       } catch (e) {
         console.error('withAllowedDo: JSON parse failed. url:', permissionsURL, 'body:', body, 'error:', e)
       }
-      if (clientRes.statusCode == 200) 
-        callback(body)
-      else
-        internalError(serverRes, `failed permissions request: statusCode: ${clientRes.statusCode} URL: ${permissionsURL} body: ${JSON.stringify(body)}`)
+      callback(clientRes.statusCode, body)
     })
   })
 }
@@ -348,16 +345,19 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
 // move somewhere else?
 function ifAllowedThen(req, res, resourceURL, property, action, callback) {
   resourceURL =  resourceURL || '//' + req.headers.host + req.url
-  withAllowedDo(req, res, resourceURL, property, action, function(allowed) {
-    if (allowed === true) {
-      callback()
-    } else {
-      if (getUser(req) !== null) {
-        forbidden(req, res)
-      } else { 
-        unauthorized(req, res)
-      }
-    }
+  withAllowedDo(req, res, resourceURL, property, action, function(statusCode, allowed) {
+    if (statusCode == 200)
+      if (allowed === true)
+        callback()
+      else
+        if (getUser(req) !== null)
+          forbidden(req, res)
+        else 
+          unauthorized(req, res)
+    else if (err = 404)
+      notFound(req, res)
+    else
+      internalError(res, err)
   })
 }
 
