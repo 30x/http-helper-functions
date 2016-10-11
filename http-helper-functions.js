@@ -217,17 +217,16 @@ function internalizeURL(anURL, authority) {
   var httpsString = 'https://' + authority  
   var schemelessString = '//' + authority  
   anURL = decodeURIComponent(anURL)
-  if (anURL.lastIndexOf(httpString, 0) === 0) {
+  if (anURL.lastIndexOf(httpString, 0) === 0) 
     return INTERNALURLPREFIX + anURL.substring(httpString.length)
-  } else if (anURL.lastIndexOf(httpsString, 0) === 0) {
+  else if (anURL.lastIndexOf(httpsString, 0) === 0) 
     return INTERNALURLPREFIX + anURL.substring(httpsString.length)
-  } else if (anURL.lastIndexOf(schemelessString, 0) === 0) {
+  else if (anURL.lastIndexOf(schemelessString, 0) === 0) 
     return INTERNALURLPREFIX + anURL.substring(schemelessString.length)
-  } else if (anURL.lastIndexOf('/', 0) === 0) {
+  else if (anURL.lastIndexOf('/', 0) === 0) 
     return INTERNALURLPREFIX + anURL
-  } else {
+  else
     return anURL
-  }
 }
 
 function internalizeURLs(jsObject, authority) {
@@ -236,9 +235,10 @@ function internalizeURLs(jsObject, authority) {
     for (var i = 0; i < jsObject.length; i++)
       jsObject[i] = internalizeURLs(jsObject[i], authority)
   else if (typeof jsObject == 'object')
-    for(var key in jsObject)
-      if (jsObject.hasOwnProperty(key))
+    for(var key in jsObject) {
+      if (jsObject.hasOwnProperty(key)) 
         jsObject[key] = internalizeURLs(jsObject[key], authority)
+    }
   else if (typeof jsObject == 'string') 
     return internalizeURL(jsObject, authority)
   return jsObject
