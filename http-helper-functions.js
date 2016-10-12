@@ -2,6 +2,7 @@
 const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
+const url = require('url')
 
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 var INTERNALURLPREFIX = 'protocol://authority'
@@ -12,6 +13,10 @@ if (SHIPYARD_PRIVATE_SECRET !== undefined) {
 }
 
 function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, headers, callback) {
+  if (pathRelativeURL.startsWith('//')) // amazingly, url.parse parses URLs that begin with // wrongly
+    pathRelativeURL = url.parse(INTERNAL_SCHEME + ':' + pathRelativeURL).path
+  else
+    pathRelativeURL = url.parse(pathRelativeURL).path
   if (typeof headers == 'function') {
     callback = headers
     headers = {}
@@ -59,7 +64,7 @@ function getServerPostObject(req, res, callback) {
   })
   req.on('end', function () {
     var contentType = req.headers['content-type']
-    if (contentType === undefined || (contentType.lastIndexOf('application/', 0) > -1 && contentType.lastIndexOf('json') == contentType.length-4)) {
+    if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json'))) {
       var jso
       try {
         jso = JSON.parse(body)
@@ -197,7 +202,7 @@ function respond(req, res, status, headers, body, contentType) {
     // If contentType is provided, body is assumed to be the representation of the resource, ready to be sent in the response. If
     // contentType is not provided, the body is assumed to be the state of the resource in Javascript objects. As such, it is
     // subject to content negotiation of the response format.
-    var wantsHTML = req.headers.accept !== undefined && req.headers.accept.lastIndexOf('text/html', 0) > -1
+    var wantsHTML = req.headers.accept !== undefined && req.headers.accept.startsWith('text/html')
     headers['Content-Type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
     if (!('Content-Type' in headers))
       headers['Content-Type'] = 'application/json'
@@ -218,13 +223,13 @@ function internalizeURL(anURL, authority) {
   var httpsString = 'https://' + authority  
   var schemelessString = '//' + authority  
   anURL = decodeURIComponent(anURL)
-  if (anURL.lastIndexOf(httpString, 0) === 0) 
+  if (anURL.startsWith(httpString)) 
     return INTERNALURLPREFIX + anURL.substring(httpString.length)
-  else if (anURL.lastIndexOf(httpsString, 0) === 0) 
+  else if (anURL.startsWith(httpsString)) 
     return INTERNALURLPREFIX + anURL.substring(httpsString.length)
-  else if (anURL.lastIndexOf(schemelessString, 0) === 0) 
+  else if (anURL.startsWith(schemelessString)) 
     return INTERNALURLPREFIX + anURL.substring(schemelessString.length)
-  else if (anURL.lastIndexOf('/', 0) === 0) 
+  else if (anURL.startsWith('/')) 
     return INTERNALURLPREFIX + anURL
   else
     return anURL
@@ -256,7 +261,7 @@ function externalizeURLs(jsObject, authority) {
         jsObject[key] = externalizeURLs(jsObject[key], authority)
     }
   else if (typeof jsObject == 'string')
-    if (jsObject.lastIndexOf(INTERNALURLPREFIX, 0) === 0) {
+    if (jsObject.startsWith(INTERNALURLPREFIX)) {
       var prefix = `//${authority}`
       return prefix + jsObject.substring(INTERNALURLPREFIX.length)
     }
@@ -356,10 +361,10 @@ function ifAllowedThen(req, res, resourceURL, property, action, callback) {
           forbidden(req, res)
         else 
           unauthorized(req, res)
-    else if (err = 404)
+    else if (statusCode == 404)
       notFound(req, res)
     else
-      internalError(res, err)
+      internalError(res, `unable to retrieve withAllowedDo statusCode: ${statusCode} resourceURL: ${resourceURL} property: ${property} action: ${action}`)
   })
 }
 
@@ -419,7 +424,7 @@ function toHTML(body) {
   const increment = 25
   function valueToHTML(value, indent, name) {
     if (typeof value == 'string')
-      if (value.lastIndexOf('http', 0) > -1 || value.lastIndexOf('./', 0) > -1 || value.lastIndexOf('/', 0) > -1) 
+      if (value.startsWith('http') || value.startsWith('./') || value.startsWith('/')) 
         return `<a href="${value}"${name === undefined ? '': ` property="${name}"`}>${value}</a>`
       else
         return `<span${name === undefined ? '': ` property="${name}"`} datatype="string">${value}</span>`
