@@ -110,8 +110,7 @@ function getUserFromToken(token) {
   }
 }
 
-function getUser(req) {
-  var auth = req.headers.authorization
+function getUser(auth) {
   if (auth == undefined)
     return null
   else {
@@ -141,7 +140,7 @@ function notFound(req, res) {
 }
 
 function forbidden(req, res) {
-  var body = `Forbidden. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req)}\n`
+  var body = `Forbidden. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
   body = JSON.stringify(body)
   res.writeHead(403, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
@@ -268,112 +267,6 @@ function externalizeURLs(jsObject, authority) {
   return jsObject
 }  
 
-// move somewhere else?
-function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, callback) {
-  var user = getUser(serverReq)
-  if (user == null)
-    unauthorized(serverReq, serverRes)
-  else {
-    if (permissions === null || permissions === undefined)
-      permissions = {
-        _subject: resourceURL,
-        _permissions: {
-          read: [user],
-          update: [user],
-          delete: [user]
-        },
-        _self: {
-          read: [user],
-          delete: [user],
-          update: [user],
-          create: [user]
-        }
-      }
-    else {
-      if (permissions._subject === undefined)
-        permissions._subject = resourceURL
-      else
-        if (permissions._subject != resourceURL)
-          badRequest(serverRes, 'value of _subject must match resourceURL')
-      var permissionsPermissons = permissions._permissions
-      if (permissions._inheritsPermissionsOf === undefined && (permissionsPermissons === undefined || permissionsPermissons.update === undefined)) {
-        if (permissionsPermissons === undefined) 
-          permissions._permissions = permissionsPermissons = {}
-        permissionsPermissons.update = [user]
-        permissionsPermissons.read = (permissions._self ? permissions._self.read: null) || [user]
-      } 
-    }
-    var postData = JSON.stringify(permissions)
-    sendInternalRequest(serverReq.headers, '/permissions', 'POST', postData, function (err, clientRes) {
-      if (err)
-        internalError(serverRes, err)
-      else
-        getClientResponseBody(clientRes, function(body) {
-          if (clientRes.statusCode == 201) { 
-            body = JSON.parse(body)
-            internalizeURLs(body, serverReq.headers.host)
-            callback(resourceURL, body, clientRes.headers)
-          } else if (clientRes.statusCode == 400)
-            badRequest(serverRes, body)
-          else if (clientRes.statusCode == 403)
-            forbidden(serverReq, serverRes)
-          else {
-            var err = {statusCode: clientRes.statusCode,
-              msg: `failed to create permissions for ${resourceURL} statusCode ${clientRes.statusCode} message ${body}`
-            }
-            internalError(serverRes, err)
-          }
-        })
-    })
-  }
-}
-
-// move somewhere else?
-function withAllowedDo(req, serverRes, resourceURL, property, action, callback) {
-  var user = getUser(req)
-  var resourceURLs = Array.isArray(resourceURL) ? resourceURL : [resourceURL]
-  var qs = resourceURLs.map(x => `resource=${x}`).join('&')
-  var permissionsURL = `/is-allowed?${qs}`
-  if (user !== null)
-    permissionsURL += '&user=' + user.replace('#', '%23')
-  if (action !== null)
-    permissionsURL += '&action=' + action
-  if (property !== null)
-    permissionsURL += '&property=' + property
-  sendInternalRequest(req.headers, permissionsURL, 'GET', undefined, function (err, clientRes) {
-    if (err)
-      internalError(serverRes, err)
-    else
-      getClientResponseBody(clientRes, function(body) {
-        try {
-          body = JSON.parse(body)
-        } catch (e) {
-          console.error('withAllowedDo: JSON parse failed. url:', permissionsURL, 'body:', body, 'error:', e)
-        }
-        callback(clientRes.statusCode, body)
-      })
-  })
-}
-
-// move somewhere else?
-function ifAllowedThen(req, res, resourceURL, property, action, callback) {
-  resourceURL =  resourceURL || '//' + req.headers.host + req.url
-  withAllowedDo(req, res, resourceURL, property, action, function(statusCode, allowed) {
-    if (statusCode == 200)
-      if (allowed === true)
-        callback()
-      else
-        if (getUser(req) !== null)
-          forbidden(req, res)
-        else 
-          unauthorized(req, res)
-    else if (statusCode == 404)
-      notFound(req, res)
-    else
-      internalError(res, `unable to retrieve withAllowedDo statusCode: ${statusCode} resourceURL: ${resourceURL} property: ${property} action: ${action}`)
-  })
-}
-
 function mergePatch(target, patch) {
   if (typeof patch == 'object' && !Array.isArray(patch)) {
     if (typeof target != 'object')
@@ -487,13 +380,11 @@ exports.internalizeURL = internalizeURL
 exports.internalizeURLs = internalizeURLs
 exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
+exports.getUserFromToken = exports.getUserFromToken
 exports.forbidden = forbidden
 exports.unauthorized = unauthorized
-exports.ifAllowedThen = ifAllowedThen
-exports.withAllowedDo = withAllowedDo
 exports.applyPatch = applyPatch
 exports.internalError = internalError
-exports.createPermissonsFor = createPermissonsFor
 exports.setStandardCreationProperties = setStandardCreationProperties
 exports.getUserFromToken = getUserFromToken
 exports.sendInternalRequest=sendInternalRequest
