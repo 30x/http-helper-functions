@@ -12,7 +12,7 @@ if (SHIPYARD_PRIVATE_SECRET !== undefined) {
   SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64')
 }
 
-function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, headers, callback) {
+function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
   if (pathRelativeURL.startsWith('//')) // amazingly, url.parse parses URLs that begin with // wrongly
     pathRelativeURL = url.parse(INTERNAL_SCHEME + ':' + pathRelativeURL).path
   else
@@ -25,14 +25,14 @@ function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, head
   if (keys.indexOf('accept') == -1)
     headers['accept'] = 'application/json'
   if (keys.indexOf('host') == -1)
-    headers['host'] = serverReq.headers.host
+    headers['host'] = flowThroughHeaders.host
   if (body) {
     if (keys.indexOf('content-type') == -1)
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
-  if (serverReq.headers.authorization !== undefined)
-    headers.authorization = serverReq.headers.authorization 
+  if (flowThroughHeaders.authorization !== undefined)
+    headers.authorization = flowThroughHeaders.authorization 
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   var hostParts = INTERNAL_ROUTER.split(':')
@@ -45,10 +45,10 @@ function sendInternalRequest(serverReq, res, pathRelativeURL, method, body, head
   }
   if (hostParts.length > 1)
     options.port = hostParts[1]
-  var clientReq = http.request(options, callback)
+  var clientReq = http.request(options, function(clientRes) {callback(null, clientRes)})
   clientReq.on('error', function (err) {
     console.log(`sendInternalRequest: error ${err}`)
-    internalError(res, err)
+    callback(err)
   })
   if (body) 
     clientReq.write(body)
@@ -304,23 +304,26 @@ function createPermissonsFor(serverReq, serverRes, resourceURL, permissions, cal
       } 
     }
     var postData = JSON.stringify(permissions)
-    sendInternalRequest(serverReq, serverRes, '/permissions', 'POST', postData, function (clientRes) {
-      getClientResponseBody(clientRes, function(body) {
-        if (clientRes.statusCode == 201) { 
-          body = JSON.parse(body)
-          internalizeURLs(body, serverReq.headers.host)
-          callback(resourceURL, body, clientRes.headers)
-        } else if (clientRes.statusCode == 400)
-          badRequest(serverRes, body)
-        else if (clientRes.statusCode == 403)
-          forbidden(serverReq, serverRes)
-        else {
-          var err = {statusCode: clientRes.statusCode,
-            msg: `failed to create permissions for ${resourceURL} statusCode ${clientRes.statusCode} message ${body}`
+    sendInternalRequest(serverReq.headers, '/permissions', 'POST', postData, function (err, clientRes) {
+      if (err)
+        internalError(serverRes, err)
+      else
+        getClientResponseBody(clientRes, function(body) {
+          if (clientRes.statusCode == 201) { 
+            body = JSON.parse(body)
+            internalizeURLs(body, serverReq.headers.host)
+            callback(resourceURL, body, clientRes.headers)
+          } else if (clientRes.statusCode == 400)
+            badRequest(serverRes, body)
+          else if (clientRes.statusCode == 403)
+            forbidden(serverReq, serverRes)
+          else {
+            var err = {statusCode: clientRes.statusCode,
+              msg: `failed to create permissions for ${resourceURL} statusCode ${clientRes.statusCode} message ${body}`
+            }
+            internalError(serverRes, err)
           }
-          internalError(serverRes, err)
-        }
-      })
+        })
     })
   }
 }
@@ -337,15 +340,18 @@ function withAllowedDo(req, serverRes, resourceURL, property, action, callback) 
     permissionsURL += '&action=' + action
   if (property !== null)
     permissionsURL += '&property=' + property
-  sendInternalRequest(req, serverRes, permissionsURL, 'GET', undefined, function (clientRes) {
-    getClientResponseBody(clientRes, function(body) {
-      try {
-        body = JSON.parse(body)
-      } catch (e) {
-        console.error('withAllowedDo: JSON parse failed. url:', permissionsURL, 'body:', body, 'error:', e)
-      }
-      callback(clientRes.statusCode, body)
-    })
+  sendInternalRequest(req.headers, permissionsURL, 'GET', undefined, function (err, clientRes) {
+    if (err)
+      internalError(serverRes, err)
+    else
+      getClientResponseBody(clientRes, function(body) {
+        try {
+          body = JSON.parse(body)
+        } catch (e) {
+          console.error('withAllowedDo: JSON parse failed. url:', permissionsURL, 'body:', body, 'error:', e)
+        }
+        callback(clientRes.statusCode, body)
+      })
   })
 }
 
