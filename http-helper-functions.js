@@ -111,15 +111,14 @@ function getUserFromToken(token) {
 }
 
 function getUser(auth) {
-  if (auth == undefined)
-    return null
-  else {
+  if (typeof auth == 'string'){
     var auth_parts = auth.match(/\S+/g)
     if (auth_parts.length < 2 || auth_parts[0].toLowerCase() != 'bearer')
       return null
     else
       return getUserFromToken(auth_parts[1])
-  }
+  } else
+    return null
 }
 
 function methodNotAllowed(req, res, allow) {
