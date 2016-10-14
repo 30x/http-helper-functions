@@ -55,6 +55,15 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
   clientReq.end()
 }
 
+function sendInternalRequestThen(flowThroughHeaders, res, pathRelativeURL, method, body, headers, callback) {
+  sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
+    if (err) 
+      internalError(res, err)
+    else 
+      callback(clientRes)
+  })
+}
+
 function getServerPostObject(req, res, callback) {
   var body = ''
   req.on('data', function (data) {
@@ -387,5 +396,6 @@ exports.internalError = internalError
 exports.setStandardCreationProperties = setStandardCreationProperties
 exports.getUserFromToken = getUserFromToken
 exports.sendInternalRequest=sendInternalRequest
+exports.sendInternalRequestThen=sendInternalRequestThen
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
