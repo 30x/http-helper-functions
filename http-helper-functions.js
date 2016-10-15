@@ -56,6 +56,10 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
 }
 
 function sendInternalRequestThen(flowThroughHeaders, res, pathRelativeURL, method, body, headers, callback) {
+  if (typeof headers == 'function') {
+    callback = headers
+    headers = {}
+  }
   sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
     if (err) 
       internalError(res, err)
