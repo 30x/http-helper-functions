@@ -143,24 +143,24 @@ function methodNotAllowed(req, res, allow) {
   res.end(body)
 }
 
-function notFound(req, res) {
-  var body = `Not Found. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
+function notFound(req, res, body) {
+  body = body || `Not Found. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
   body = JSON.stringify(body)
   res.writeHead(404, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
-function forbidden(req, res) {
-  var body = `Forbidden. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
+function forbidden(req, res, body) {
+  body = body || `Forbidden. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
   body = JSON.stringify(body)
   res.writeHead(403, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
-function unauthorized(req, res) {
-  var body = 'Unauthorized. request-target: ' + req.url
+function unauthorized(req, res, body) {
+  body = body || 'Unauthorized. request-target: ' + req.url
   body = JSON.stringify(body)
   res.writeHead(401, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
