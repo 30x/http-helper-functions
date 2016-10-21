@@ -6,8 +6,8 @@ const url = require('url')
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
-const INTERNAL_ROUTER_HOST = process.env.INTERNAL_ROUTER_HOST
-const INTERNAL_ROUTER_PORT = process.env.INTERNAL_ROUTER_PORT
+const INTERNAL_SY_ROUTER_HOST = process.env.INTERNAL_SY_ROUTER_HOST
+const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET
 if (SHIPYARD_PRIVATE_SECRET !== undefined) {
   SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64')
@@ -38,13 +38,13 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   var options = {
     protocol: `${INTERNAL_SCHEME}:`,
-    hostname: INTERNAL_ROUTER_HOST,
+    hostname: INTERNAL_SY_ROUTER_HOST,
     path: pathRelativeURL,
     method: method,
     headers: headers
   }
-  if (INTERNAL_ROUTER_PORT)
-    options.port = INTERNAL_ROUTER_PORT
+  if (INTERNAL_SY_ROUTER_PORT)
+    options.port = INTERNAL_SY_ROUTER_PORT
   var clientReq = http.request(options, function(clientRes) {callback(null, clientRes)})
   clientReq.on('error', function (err) {
     console.log(`sendInternalRequest: error ${err}`)
