@@ -1,6 +1,6 @@
 {
   "name": "http-helper-functions",
-  "version": "0.0.43",
+  "version": "0.0.44",
   "description": "Some helper functions for working with the Node http module",
   "main": "http-helper-functions.js",
   "scripts": {

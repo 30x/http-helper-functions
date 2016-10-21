@@ -4,9 +4,10 @@ const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
 
-var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
-var INTERNALURLPREFIX = 'scheme://authority'
-var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER
+const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
+const INTERNALURLPREFIX = 'scheme://authority'
+const INTERNAL_ROUTER_HOST = process.env.INTERNAL_ROUTER_HOST
+const INTERNAL_ROUTER_PORT = process.env.INTERNAL_ROUTER_PORT
 var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET
 if (SHIPYARD_PRIVATE_SECRET !== undefined) {
   SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64')
@@ -35,16 +36,15 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     headers.authorization = flowThroughHeaders.authorization 
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
-  var hostParts = INTERNAL_ROUTER.split(':')
   var options = {
     protocol: `${INTERNAL_SCHEME}:`,
-    hostname: hostParts[0],
+    hostname: INTERNAL_ROUTER_HOST,
     path: pathRelativeURL,
     method: method,
     headers: headers
   }
-  if (hostParts.length > 1)
-    options.port = hostParts[1]
+  if (INTERNAL_ROUTER_PORT)
+    options.port = INTERNAL_ROUTER_PORT
   var clientReq = http.request(options, function(clientRes) {callback(null, clientRes)})
   clientReq.on('error', function (err) {
     console.log(`sendInternalRequest: error ${err}`)
