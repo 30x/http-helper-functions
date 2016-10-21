@@ -5,7 +5,7 @@ const randomBytes = require('crypto').randomBytes
 const url = require('url')
 
 var INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
-var INTERNALURLPREFIX = 'protocol://authority'
+var INTERNALURLPREFIX = 'scheme://authority'
 var INTERNAL_ROUTER = process.env.INTERNAL_ROUTER
 var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET
 if (SHIPYARD_PRIVATE_SECRET !== undefined) {
