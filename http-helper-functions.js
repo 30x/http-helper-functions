@@ -61,9 +61,13 @@ function sendInternalRequestThen(flowThroughHeaders, res, pathRelativeURL, metho
     headers = {}
   }
   sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
-    if (err) 
+    if (err) {
+      err.host = flowThroughHeaders.host 
+      err.path = pathRelativeURL
+      err.internalRouterHost = INTERNAL_SY_ROUTER_HOST
+      err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
       internalError(res, err)
-    else 
+    } else 
       callback(clientRes)
   })
 }
