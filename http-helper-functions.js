@@ -55,7 +55,8 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
   clientReq.end()
 }
 
-function sendInternalRequestThen(flowThroughHeaders, res, pathRelativeURL, method, body, headers, callback) {
+function sendInternalRequestThen(req, res, pathRelativeURL, method, body, headers, callback) {
+  var flowThroughHeaders = req.headers
   if (typeof headers == 'function') {
     callback = headers
     headers = {}
