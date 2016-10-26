@@ -3,14 +3,52 @@ const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
+const https = require('https');
+const fs = require('fs');
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
 const INTERNAL_SY_ROUTER_HOST = process.env.INTERNAL_SY_ROUTER_HOST
+const RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
-var SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET
-if (SHIPYARD_PRIVATE_SECRET !== undefined) {
-  SHIPYARD_PRIVATE_SECRET = new Buffer(SHIPYARD_PRIVATE_SECRET).toString('base64')
+const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
+
+function getHostIPThen(res, callback) {
+  var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
+  var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
+  var ns = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace').toString()
+  var podName = process.env.POD_NAME
+
+  var headers = {
+      Authorization: `Bearer ${token}`
+  }
+  var options = {
+    protocol: 'https:',
+    hostname: 'kubernetes.default',
+    cert: cert,
+    rejectUnauthorized: false,
+    path: `/api/v1/namespaces/${ns}/pods/${podName}`,
+    method: 'GET',
+    headers: headers
+  }
+  var clientReq = https.request(options, function(res) {
+    if (res.statusCode == 200) {
+      res.setEncoding('utf8')
+      var body = ''
+      res.on('data', chunk => body += chunk)
+      res.on('end', function() {
+        INTERNAL_SY_ROUTER_HOST = JSON.parse(body).status.hostIP
+        RESOLVED_HOST = true
+        callback()
+
+      })
+    } else 
+      internalError(res, `unable to resolve Host IP. statusCode: ${res.statusCode}`)
+  })
+  clientReq.on('error', function (err) {
+    console.log(`sendInternalRequest: error ${err}`)
+  })
+  clientReq.end()
 }
 
 function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
@@ -56,21 +94,27 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
 }
 
 function sendInternalRequestThen(req, res, pathRelativeURL, method, body, headers, callback) {
-  var flowThroughHeaders = req.headers
-  if (typeof headers == 'function') {
-    callback = headers
-    headers = {}
+  function primSendInternalRequestThen() {
+    var flowThroughHeaders = req.headers
+    if (typeof headers == 'function') {
+      callback = headers
+      headers = {}
+    }
+    sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
+      if (err) {
+        err.host = flowThroughHeaders.host 
+        err.path = pathRelativeURL
+        err.internalRouterHost = INTERNAL_SY_ROUTER_HOST
+        err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
+        internalError(res, err)
+      } else 
+        callback(clientRes)
+    })
   }
-  sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
-    if (err) {
-      err.host = flowThroughHeaders.host 
-      err.path = pathRelativeURL
-      err.internalRouterHost = INTERNAL_SY_ROUTER_HOST
-      err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
-      internalError(res, err)
-    } else 
-      callback(clientRes)
-  })
+  if (RESOLVED_HOST)
+    primSendInternalRequestThen()
+  else
+    getHostIPThen(res, primSendInternalRequestThen)
 }
 
 function getServerPostObject(req, res, callback) {
@@ -404,7 +448,6 @@ exports.applyPatch = applyPatch
 exports.internalError = internalError
 exports.setStandardCreationProperties = setStandardCreationProperties
 exports.getUserFromToken = getUserFromToken
-exports.sendInternalRequest=sendInternalRequest
 exports.sendInternalRequestThen=sendInternalRequestThen
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
