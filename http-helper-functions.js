@@ -321,7 +321,7 @@ function externalizeURLs(jsObject, authority) {
     }
   else if (typeof jsObject == 'string')
     if (jsObject.startsWith(INTERNALURLPREFIX)) {
-      var prefix = `//${authority}`
+      var prefix = '' // `//${authority}`
       return prefix + jsObject.substring(INTERNALURLPREFIX.length)
     }
   return jsObject
