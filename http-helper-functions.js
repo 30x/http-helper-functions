@@ -8,8 +8,6 @@ const fs = require('fs');
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
-var INTERNAL_SY_ROUTER_HOST = process.env.INTERNAL_SY_ROUTER_HOST
-var RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
@@ -37,12 +35,11 @@ function getHostIPThen(callback) {
     res.on('data', chunk => body += chunk)
     res.on('end', function() {
       if (res.statusCode == 200) {
-        INTERNAL_SY_ROUTER_HOST = JSON.parse(body).status.hostIP
-        RESOLVED_HOST = true
-        callback()
+        callback(null, JSON.parse(body).status.hostIP)
       } else {
-        console.log(`unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`)
-        process.exit(1)
+        var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
+        console.log(err)
+        callback(err)
       }
     })
   })
@@ -50,13 +47,6 @@ function getHostIPThen(callback) {
     console.log(`sendInternalRequest: error ${err}`)
   })
   clientReq.end()
-}
-
-function init(callback) {
-  if (RESOLVED_HOST)
-    callback()
-  else
-    getHostIPThen(callback)
 }
 
 function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
@@ -84,7 +74,7 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   var options = {
     protocol: `${INTERNAL_SCHEME}:`,
-    hostname: INTERNAL_SY_ROUTER_HOST,
+    hostname: process.env.INTERNAL_SY_ROUTER_HOST,
     path: pathRelativeURL,
     method: method,
     headers: headers
@@ -111,7 +101,7 @@ function sendInternalRequestThen(req, res, pathRelativeURL, method, body, header
     if (err) {
       err.host = flowThroughHeaders.host 
       err.path = pathRelativeURL
-      err.internalRouterHost = INTERNAL_SY_ROUTER_HOST
+      err.internalRouterHost = process.env.INTERNAL_SY_ROUTER_HOST
       err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
       internalError(res, err)
     } else 
@@ -453,4 +443,4 @@ exports.getUserFromToken = getUserFromToken
 exports.sendInternalRequestThen=sendInternalRequestThen
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
-exports.init = init
+exports.getHostIPThen = getHostIPThen
