@@ -13,7 +13,7 @@ const RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
-function getHostIPThen(res, callback) {
+function getHostIPThen(serverRes, callback) {
   var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
   var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
   var ns = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace').toString()
@@ -32,18 +32,17 @@ function getHostIPThen(res, callback) {
     headers: headers
   }
   var clientReq = https.request(options, function(res) {
-    if (res.statusCode == 200) {
-      res.setEncoding('utf8')
-      var body = ''
-      res.on('data', chunk => body += chunk)
-      res.on('end', function() {
+    res.setEncoding('utf8')
+    var body = ''
+    res.on('data', chunk => body += chunk)
+    res.on('end', function() {
+      if (res.statusCode == 200) {
         INTERNAL_SY_ROUTER_HOST = JSON.parse(body).status.hostIP
         RESOLVED_HOST = true
         callback()
-
-      })
-    } else 
-      internalError(res, `unable to resolve Host IP. statusCode: ${res.statusCode}`)
+      } else 
+        internalError(serverRes, `unable to resolve Host IP. statusCode: ${serverRes.statusCode} body: ${body}`)
+    })
   })
   clientReq.on('error', function (err) {
     console.log(`sendInternalRequest: error ${err}`)
