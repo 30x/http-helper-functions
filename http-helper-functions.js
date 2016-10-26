@@ -9,7 +9,7 @@ const fs = require('fs');
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
 var INTERNAL_SY_ROUTER_HOST = process.env.INTERNAL_SY_ROUTER_HOST
-const RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
+var RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
