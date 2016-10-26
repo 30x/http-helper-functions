@@ -8,7 +8,7 @@ const fs = require('fs');
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
-const INTERNAL_SY_ROUTER_HOST = process.env.INTERNAL_SY_ROUTER_HOST
+var INTERNAL_SY_ROUTER_HOST = process.env.INTERNAL_SY_ROUTER_HOST
 const RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
@@ -41,7 +41,7 @@ function getHostIPThen(serverRes, callback) {
         RESOLVED_HOST = true
         callback()
       } else 
-        internalError(serverRes, `unable to resolve Host IP. statusCode: ${serverRes.statusCode} body: ${body}`)
+        internalError(serverRes, `unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`)
     })
   })
   clientReq.on('error', function (err) {
