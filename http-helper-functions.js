@@ -13,7 +13,7 @@ var RESOLVED_HOST = INTERNAL_SY_ROUTER_HOST != 'kubernetes_host_ip'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
-function getHostIPThen(serverRes, callback) {
+function getHostIPThen(callback) {
   var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
   var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
   var ns = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace').toString()
@@ -40,14 +40,23 @@ function getHostIPThen(serverRes, callback) {
         INTERNAL_SY_ROUTER_HOST = JSON.parse(body).status.hostIP
         RESOLVED_HOST = true
         callback()
-      } else 
-        internalError(serverRes, `unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`)
+      } else {
+        console.log(`unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`)
+        process.exit(1)
+      }
     })
   })
   clientReq.on('error', function (err) {
     console.log(`sendInternalRequest: error ${err}`)
   })
   clientReq.end()
+}
+
+function init(callback) {
+  if (RESOLVED_HOST)
+    callback()
+  else
+    getHostIPThen(callback)
 }
 
 function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
@@ -93,27 +102,21 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
 }
 
 function sendInternalRequestThen(req, res, pathRelativeURL, method, body, headers, callback) {
-  function primSendInternalRequestThen() {
-    var flowThroughHeaders = req.headers
-    if (typeof headers == 'function') {
-      callback = headers
-      headers = {}
-    }
-    sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
-      if (err) {
-        err.host = flowThroughHeaders.host 
-        err.path = pathRelativeURL
-        err.internalRouterHost = INTERNAL_SY_ROUTER_HOST
-        err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
-        internalError(res, err)
-      } else 
-        callback(clientRes)
-    })
+  var flowThroughHeaders = req.headers
+  if (typeof headers == 'function') {
+    callback = headers
+    headers = {}
   }
-  if (RESOLVED_HOST)
-    primSendInternalRequestThen()
-  else
-    getHostIPThen(res, primSendInternalRequestThen)
+  sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
+    if (err) {
+      err.host = flowThroughHeaders.host 
+      err.path = pathRelativeURL
+      err.internalRouterHost = INTERNAL_SY_ROUTER_HOST
+      err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
+      internalError(res, err)
+    } else 
+      callback(clientRes)
+  })
 }
 
 function getServerPostObject(req, res, callback) {
@@ -450,3 +453,4 @@ exports.getUserFromToken = getUserFromToken
 exports.sendInternalRequestThen=sendInternalRequestThen
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
+exports.init = init
