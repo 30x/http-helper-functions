@@ -239,7 +239,7 @@ function duplicate(res, err) {
 function found(req, res, body, etag, location, contentType) {
   var headers = {}
   if (location !== undefined)
-    headers['Content-Location'] = location
+    headers['Content-Location'] = externalizeURLs(location, req.headers.host) 
   else
     headers['Content-Location'] = '//' + req.headers.host + req.url //todo - handle case where req.url includes http://authority
   if (etag !== undefined) 
@@ -250,7 +250,7 @@ function found(req, res, body, etag, location, contentType) {
 function created(req, res, body, location, etag, contentType) {
   var headers =  {}
   if (location !== undefined)
-    headers['Location'] = location
+    headers['Location'] = externalizeURLs(location, req.headers.host)
   if (etag !== undefined)
     headers['Etag'] = etag 
   respond(req, res, 201, headers, body, contentType)
