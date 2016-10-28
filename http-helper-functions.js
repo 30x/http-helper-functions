@@ -38,7 +38,7 @@ function getHostIPFromK8SThen(callback) {
         var hostIP = JSON.parse(body).status.hostIP
         console.log(`http-helper-functions: retrieved Kubernetes hostIP from K8S: ${hostIP}`)
         callback(null, JSON.parse(body).status.hostIP)
-      } else 
+      } else {
         var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
         console.log(err)
         callback(err)
