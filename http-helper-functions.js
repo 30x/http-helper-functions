@@ -65,7 +65,7 @@ function getHostIPFromIPThen(callback) {
 }
 
 function getHostIPThen(callback) {
-  getHostIPFromIPThen(function (error, hostIP) {
+  getHostIPFromK8SThen(function (error, hostIP) {
     if (error) 
       callback(error)
     else
