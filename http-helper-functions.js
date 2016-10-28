@@ -35,6 +35,8 @@ function getHostIPThen(callback) {
     res.on('data', chunk => body += chunk)
     res.on('end', function() {
       if (res.statusCode == 200) {
+        var hostIP = JSON.parse(body).status.hostIP
+        console.log(`retrieved Kubernetes hostIP: ${hostIP}`)
         callback(null, JSON.parse(body).status.hostIP)
       } else {
         var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
