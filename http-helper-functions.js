@@ -11,7 +11,7 @@ const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
 function getHostIPThen(callback) {
-  exec("/sbin/ip route|awk '/default/ { print $3 }'", function (error, stdout, stderr) {
+  exec("ip -oneline -family inet addr show dev eth0 | awk '{split($4, a, "/"); printf a[1]}'", function (error, stdout, stderr) {
     if (error) 
       callback(error)
     else
