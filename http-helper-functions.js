@@ -58,7 +58,7 @@ function getHostIPFromIPThen(callback) {
       console.log('http-helper-functions: unable to resolve Host IP.',  error, stdout, stderr)
       callback(error)
     } else {
-      console.log(`http-helper-functions: retrieved Kubernetes hostIP from IP: ${hostIP}`)
+      console.log(`http-helper-functions: retrieved Kubernetes hostIP from IP: ${stdout}`)
       callback(null, stdout)
     }
   })
