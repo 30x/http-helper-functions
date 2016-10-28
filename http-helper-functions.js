@@ -443,6 +443,7 @@ exports.internalError = internalError
 exports.setStandardCreationProperties = setStandardCreationProperties
 exports.getUserFromToken = getUserFromToken
 exports.sendInternalRequestThen=sendInternalRequestThen
+exports.sendInternalRequest=sendInternalRequest
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
 exports.getHostIPThen = getHostIPThen
