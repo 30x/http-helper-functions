@@ -3,15 +3,15 @@ const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
-const https = require('https');
-const fs = require('fs');
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
-function getHostIPThen(callback) {
+const https = require('https');
+const fs = require('fs');
+function getHostIPFromK8SThen(callback) {
   var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
   var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
   var ns = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace').toString()
@@ -36,9 +36,9 @@ function getHostIPThen(callback) {
     res.on('end', function() {
       if (res.statusCode == 200) {
         var hostIP = JSON.parse(body).status.hostIP
-        console.log(`retrieved Kubernetes hostIP: ${hostIP}`)
+        console.log(`http-helper-functions: retrieved Kubernetes hostIP from K8S: ${hostIP}`)
         callback(null, JSON.parse(body).status.hostIP)
-      } else {
+      } else 
         var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
         console.log(err)
         callback(err)
@@ -49,6 +49,28 @@ function getHostIPThen(callback) {
     console.log(`sendInternalRequest: error ${err}`)
   })
   clientReq.end()
+}
+
+const exec = require('child_process').exec;
+function getHostIPFromIPThen(callback) {
+  exec(`ip -oneline -family inet addr show dev eth0 | awk '{split($4, a, "/"); printf a[1]}'`, function (error, stdout, stderr) {
+    if (error) {
+      console.log('http-helper-functions: unable to resolve Host IP.',  error, stdout, stderr)
+      callback(error)
+    } else {
+      console.log(`http-helper-functions: retrieved Kubernetes hostIP from IP: ${hostIP}`)
+      callback(null, stdout)
+    }
+  })
+}
+
+function getHostIPThen(callback) {
+  getHostIPFromIPThen(function (error, hostIP) {
+    if (error) 
+      callback(error)
+    else
+      callback(null, hostIP)
+  })
 }
 
 function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
