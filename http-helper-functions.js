@@ -3,8 +3,7 @@ const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
-const https = require('https');
-const fs = require('fs');
+const exec = require('child_process').exec;
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
@@ -12,41 +11,12 @@ const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
 function getHostIPThen(callback) {
-  var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
-  var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
-  var ns = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace').toString()
-  var podName = process.env.POD_NAME
-
-  var headers = {
-      Authorization: `Bearer ${token}`
-  }
-  var options = {
-    protocol: 'https:',
-    hostname: 'kubernetes.default',
-    cert: cert,
-    rejectUnauthorized: false,
-    path: `/api/v1/namespaces/${ns}/pods/${podName}`,
-    method: 'GET',
-    headers: headers
-  }
-  var clientReq = https.request(options, function(res) {
-    res.setEncoding('utf8')
-    var body = ''
-    res.on('data', chunk => body += chunk)
-    res.on('end', function() {
-      if (res.statusCode == 200) {
-        callback(null, JSON.parse(body).status.hostIP)
-      } else {
-        var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
-        console.log(err)
-        callback(err)
-      }
-    })
+  exec("/sbin/ip route|awk '/default/ { print $3 }'", function (error, stdout, stderr) {
+    if (error) 
+      callback(error)
+    else
+      callback(null, stdout)
   })
-  clientReq.on('error', function (err) {
-    console.log(`sendInternalRequest: error ${err}`)
-  })
-  clientReq.end()
 }
 
 function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
