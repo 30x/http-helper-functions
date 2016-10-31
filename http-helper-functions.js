@@ -51,7 +51,6 @@ function getHostIPFromK8SThen(callback) {
   clientReq.end()
 }
 
-const fs = require('fs')
 function getHostIPFromFileThen(callback) {
   fs.readFile('/proc/net/route', function (error, data) {
     if (error) {
