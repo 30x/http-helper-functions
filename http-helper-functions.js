@@ -52,20 +52,20 @@ function getHostIPFromK8SThen(callback) {
 }
 
 const exec = require('child_process').exec;
-function getHostIPFromIPThen(callback) {
-  exec(`ip -oneline -family inet addr show dev eth0 | awk '{split($4, a, "/"); printf a[1]}'`, function (error, stdout, stderr) {
+function getHostIPFromFileThen(callback) {
+  exec(`cat /proc/net/route | awk '$2 == "00000000" {print $3}'`, function (error, stdout, stderr) {
     if (error) {
       console.log('http-helper-functions: unable to resolve Host IP.',  error, stdout, stderr)
       callback(error)
     } else {
       console.log(`http-helper-functions: retrieved Kubernetes hostIP from IP: ${stdout}`)
-      callback(null, stdout)
+      callback(null, [3,2,1,0].map((i) => parseInt(stdout.slice(i*2,i*2+2), 16)).join(':'))
     }
   })
 }
 
 function getHostIPThen(callback) {
-  getHostIPFromK8SThen(function (error, hostIP) {
+  getHostIPFromFileThen(function (error, hostIP) {
     if (error) 
       callback(error)
     else
@@ -285,6 +285,7 @@ function respond(req, res, status, headers, body, contentType) {
     // If contentType is provided, body is assumed to be the representation of the resource, ready to be sent in the response. If
     // contentType is not provided, the body is assumed to be the state of the resource in Javascript objects. As such, it is
     // subject to content negotiation of the response format.
+    // ToDo: make the code match this comment or change the comment
     var wantsHTML = req.headers.accept !== undefined && req.headers.accept.startsWith('text/html')
     if (!('Content-Type' in headers))
       headers['Content-Type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
