@@ -161,24 +161,21 @@ function getServerPostObject(req, res, callback) {
   })
 }
 
-function getServerPostBuffer(req, res, callback) {
+function getServerPostBuffer(req, callback) {
   var body = []
   req.on('data', function (data) {
     if (body.length + data.length > 1e6)
       return req.connection.destroy()
     body.push(data)
   })
-  req.on('end', function () {console.log(`getServerPostBuffer end`)
-    callback(req, res, Buffer.concat(body))
-  })
-  console.log('getServerPostBuffer')
+  req.on('end', () => callback(Buffer.concat(body)))
 }
 
 function getClientResponseBody(res, callback) {
   res.setEncoding('utf8')
   var body = ''
   res.on('data', chunk => body += chunk)
-  res.on('end', function() {callback(body)})
+  res.on('end', () => callback(body))
 }
 
 function getClientResponseBuffer(res, callback) {
