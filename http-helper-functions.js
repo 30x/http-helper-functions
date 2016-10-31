@@ -18,7 +18,7 @@ function getHostIPFromK8SThen(callback) {
   var podName = process.env.POD_NAME
 
   var headers = {
-      Authorization: `Bearer ${token}`
+    Authorization: `Bearer ${token}`
   }
   var options = {
     protocol: 'https:',
@@ -82,6 +82,7 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     callback = headers
     headers = {}
   }
+  console.log(`http-helper-functions:sendInternalRequest method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
   var keys = Object.keys(headers).map(x=>x.toLowerCase())
   if (keys.indexOf('accept') == -1)
     headers['accept'] = 'application/json'
@@ -105,7 +106,9 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
   }
   if (INTERNAL_SY_ROUTER_PORT)
     options.port = INTERNAL_SY_ROUTER_PORT
-  var clientReq = http.request(options, function(clientRes) {callback(null, clientRes)})
+  var clientReq = http.request(options, function(clientRes) {
+    callback(null, clientRes)
+  })
   clientReq.on('error', function (err) {
     console.log(`sendInternalRequest: error ${err}`)
     callback(err)
@@ -165,9 +168,10 @@ function getServerPostBuffer(req, res, callback) {
       return req.connection.destroy()
     body.push(data)
   })
-  req.on('end', function () {
+  req.on('end', function () {console.log(`getServerPostBuffer end`)
     callback(req, res, Buffer.concat(body))
   })
+  console.log('getServerPostBuffer')
 }
 
 function getClientResponseBody(res, callback) {
@@ -175,6 +179,12 @@ function getClientResponseBody(res, callback) {
   var body = ''
   res.on('data', chunk => body += chunk)
   res.on('end', function() {callback(body)})
+}
+
+function getClientResponseBuffer(res, callback) {
+  var body = []
+  res.on('data', chunk => body.push(chunk))
+  res.on('end', () => callback(Buffer.concat(body)))
 }
 
 function getUserFromToken(token) {
@@ -279,9 +289,8 @@ function respond(req, res, status, headers, body, contentType) {
     // contentType is not provided, the body is assumed to be the state of the resource in Javascript objects. As such, it is
     // subject to content negotiation of the response format.
     var wantsHTML = req.headers.accept !== undefined && req.headers.accept.startsWith('text/html')
-    headers['Content-Type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
     if (!('Content-Type' in headers))
-      headers['Content-Type'] = 'application/json'
+      headers['Content-Type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
     externalizeURLs(body, req.headers.host)
     var contentType = headers['Content-Type']
     body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : contentType == 'application/json' ? JSON.stringify(body) : body.toString()
@@ -446,6 +455,7 @@ function uuid4() {
 exports.getServerPostObject = getServerPostObject
 exports.getServerPostBuffer = getServerPostBuffer
 exports.getClientResponseBody = getClientResponseBody
+exports.getClientResponseBuffer = getClientResponseBuffer
 exports.methodNotAllowed = methodNotAllowed
 exports.notFound = notFound
 exports.badRequest = badRequest
