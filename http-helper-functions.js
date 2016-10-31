@@ -51,14 +51,14 @@ function getHostIPFromK8SThen(callback) {
   clientReq.end()
 }
 
-const exec = require('child_process').exec;
+const fs = require('fs')
 function getHostIPFromFileThen(callback) {
-  exec(`cat /proc/net/route | awk '$2 == "00000000" {print $3}'`, function (error, stdout, stderr) {
+  fs.readFile('/proc/net/route', function (error, data) {
     if (error) {
-      console.log('http-helper-functions: unable to resolve Host IP.',  error, stdout, stderr)
+      console.log('http-helper-functions: unable to resolve Host IP.',  error)
       callback(error)
     } else {
-      var hostIP = [3,2,1,0].map((i) => parseInt(stdout.slice(i*2,i*2+2), 16)).join('.')
+      var hostIP = data.toString().split('\n')[1].split('\t')[2]
       console.log(`http-helper-functions: retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
       callback(null, hostIP)
     }
