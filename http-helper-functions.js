@@ -36,7 +36,7 @@ function getHostIPFromK8SThen(callback) {
     res.on('end', function() {
       if (res.statusCode == 200) {
         var hostIP = JSON.parse(body).status.hostIP
-        console.log(`http-helper-functions: retrieved Kubernetes hostIP from K8S: ${hostIP}`)
+        console.log(`http-helper-functions: retrieved Kubernetes hostIP : ${hostIP}from K8S API`)
         callback(null, hostIP)
       } else {
         var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
@@ -58,8 +58,8 @@ function getHostIPFromFileThen(callback) {
       console.log('http-helper-functions: unable to resolve Host IP.',  error, stdout, stderr)
       callback(error)
     } else {
-      var hostIP = [3,2,1,0].map((i) => parseInt(stdout.slice(i*2,i*2+2), 16)).join(':')
-      console.log(`http-helper-functions: retrieved Kubernetes hostIP from IP: ${hostIP}`)
+      var hostIP = [3,2,1,0].map((i) => parseInt(stdout.slice(i*2,i*2+2), 16)).join('.')
+      console.log(`http-helper-functions: retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
       callback(null, hostIP)
     }
   })
