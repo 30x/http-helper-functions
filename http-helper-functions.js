@@ -156,7 +156,7 @@ function getServerPostObject(req, res, callback) {
         badRequest(res, 'invalid JSON: ' + err.message)
       }
       if (jso)
-        callback(req, res, jso)
+        callback(jso)
     } else
       badRequest(res, 'input must be JSON')
   })
