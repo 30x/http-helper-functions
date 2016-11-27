@@ -150,13 +150,13 @@ function getServerPostObject(req, res, callback) {
       var jso
       try {
         jso = JSON.parse(body)
-        internalizeURLs(jso, req.headers.host)
       }
       catch (err) {
-        badRequest(res, 'invalid JSON: ' + err.message)
+        console.log(body)
+        badRequest(res, `invalid JSON: ${err.message} body: ${body}` )
       }
       if (jso)
-        callback(jso)
+        callback(internalizeURLs(jso, req.headers.host, contentType))
     } else
       badRequest(res, 'input must be JSON')
   })
@@ -319,16 +319,20 @@ function internalizeURL(anURL, authority) {
     return anURL
 }
 
-function internalizeURLs(jsObject, authority) {
+function internalizeURLs(jsObject, authority, contentType) {
   //strip the http://authority or https://authority from the front of any urls
   if (Array.isArray(jsObject))
     for (var i = 0; i < jsObject.length; i++)
-      jsObject[i] = internalizeURLs(jsObject[i], authority)
+      jsObject[i] = internalizeURLs(jsObject[i], authority, contentType)
   else if (typeof jsObject == 'object')
-    for(var key in jsObject) {
-      if (jsObject.hasOwnProperty(key)) 
-        jsObject[key] = internalizeURLs(jsObject[key], authority)
-    }
+    if (contentType == 'application/json-patch+json') {
+      if (jsObject['value'] !== undefined)
+        jsObject['value'] = internalizeURLs(jsObject['value'], authority)
+    } else
+      for (var key in jsObject) {
+        if (jsObject.hasOwnProperty(key)) 
+          jsObject[key] = internalizeURLs(jsObject[key], authority)
+      }
   else if (typeof jsObject == 'string') 
     return internalizeURL(jsObject, authority)
   return jsObject
@@ -376,8 +380,15 @@ function applyPatch(req, res, target, patch, callback) {
   if ('content-type' in req.headers) 
     if (req.headers['content-type'] == 'application/merge-patch+json')
       callback(mergePatch(target, patch))
-    else if (req.headers['content-type'] == 'application/json-patch+json')
-      callback(jsonpatch.apply_patch(target, patch))
+    else if (req.headers['content-type'] == 'application/json-patch+json') {
+      try {
+        var patchedDoc = jsonpatch.apply_patch(target, patch)
+      }
+      catch(err) {
+        return badRequest(res, `err: ${err} patch: ${JSON.stringify(patch)}`)
+      }
+      callback(patchedDoc)
+    }
     else
       badRequest(res, `unknown PATCH content-type: ${req.headers['content-type']}`)  
   else 
