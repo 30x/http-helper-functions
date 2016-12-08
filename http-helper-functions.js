@@ -137,6 +137,46 @@ function sendInternalRequestThen(req, res, pathRelativeURL, method, body, header
   })
 }
 
+function sendRequest(req, targetUrl, method, body, headers, callback) {
+  var flowThroughHeaders = req.headers
+  if (typeof headers == 'function') {
+    callback = headers
+    headers = {}
+  }
+  console.log(`http-helper-functions:sendRequest method: ${method} url: ${targetUrl}`)
+  targetUrl = url.resolve(`http://${req.headers.host}${req.url}`, targetUrl)
+  var keys = Object.keys(headers).map(x=>x.toLowerCase())
+  if (keys.indexOf('accept') == -1)
+    headers['accept'] = 'application/json'
+  if (body) {
+    if (keys.indexOf('content-type') == -1)
+      headers['content-type'] = 'application/json'
+    headers['content-length'] = Buffer.byteLength(body)
+  }
+  if (req.headers.authorization !== undefined)
+    headers.authorization = req.headers.authorization 
+  var urlParts = url.parse(targetUrl)
+  var options = {
+    protocol: urlParts.protocol,
+    hostname: urlParts.hostName,
+    path: urlParts.path,
+    method: method,
+    headers: headers
+  }
+  if (urlParts.port)
+    options.port = urlParts.port
+  var clientReq = http.request(options, function(clientRes) {
+    callback(null, clientRes)
+  })
+  clientReq.on('error', function (err) {
+    console.log(`http-helper-functions:sendRequest: url: ${targetUrl} ${err}`)
+    callback(err)
+  })
+  if (body)
+    clientReq.write(body)
+  clientReq.end()    
+}
+
 function getServerPostObject(req, res, callback) {
   var body = ''
   req.on('data', function (data) {
@@ -266,7 +306,7 @@ function found(req, res, body, etag, location, contentType) {
   if (location !== undefined)
     headers['Content-Location'] = externalizeURLs(location, req.headers.host) 
   else
-    headers['Content-Location'] = '//' + req.headers.host + req.url //todo - handle case where req.url includes http://authority
+    headers['Content-Location'] = req.url //todo - handle case where req.url includes http://authority
   if (etag !== undefined) 
     headers['Etag'] = etag
   respond(req, res, 200, headers, body, contentType)
@@ -489,3 +529,4 @@ exports.sendInternalRequest=sendInternalRequest
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
 exports.getHostIPThen = getHostIPThen
+exports.sendRequest = sendRequest
