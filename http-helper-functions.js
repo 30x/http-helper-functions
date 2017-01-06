@@ -3,6 +3,7 @@ const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
+var keepAliveAgent = new http.Agent({ keepAlive: true });
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
@@ -46,7 +47,7 @@ function getHostIPFromK8SThen(callback) {
     })
   })
   clientReq.on('error', function (err) {
-    console.log(`sendInternalRequest: error ${err}`)
+    console.log(`getHostIPFromK8SThen: error ${err}`)
   })
   clientReq.end()
 }
@@ -103,7 +104,8 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     hostname: process.env.INTERNAL_SY_ROUTER_HOST,
     path: pathRelativeURL,
     method: method,
-    headers: headers
+    headers: headers,
+    agent: keepAliveAgent
   }
   if (INTERNAL_SY_ROUTER_PORT)
     options.port = INTERNAL_SY_ROUTER_PORT
@@ -161,7 +163,8 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
     hostname: urlParts.hostName,
     path: urlParts.path,
     method: method,
-    headers: headers
+    headers: headers,
+    agent: keepAliveAgent
   }
   if (urlParts.port)
     options.port = urlParts.port
@@ -292,6 +295,7 @@ function internalError(res, err) {
   res.writeHead(500, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
+  process.exit()
 }   
 
 function duplicate(res, err) {
