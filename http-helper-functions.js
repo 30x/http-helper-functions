@@ -295,7 +295,6 @@ function internalError(res, err) {
   res.writeHead(500, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
-  process.exit()
 }   
 
 function duplicate(res, err) {
