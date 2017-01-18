@@ -3,15 +3,20 @@ const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
-var keepAliveAgent = new http.Agent({ keepAlive: true });
+var keepAliveAgent = new http.Agent({ keepAlive: true })
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNALURLPREFIX = 'scheme://authority'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
-const https = require('https');
-const fs = require('fs');
+const https = require('https')
+const fs = require('fs')
+
+function log(funcionName, text) {
+  console.log(Date.now(), process.env.COMPONENT, funcionName, text)
+}
+
 function getHostIPFromK8SThen(callback) {
   var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
   var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
@@ -37,17 +42,17 @@ function getHostIPFromK8SThen(callback) {
     res.on('end', function() {
       if (res.statusCode == 200) {
         var hostIP = JSON.parse(body).status.hostIP
-        console.log(`http-helper-functions: retrieved Kubernetes hostIP : ${hostIP}from K8S API`)
+        log('http-helper-functions:getHostIPFromK8SThen', `retrieved Kubernetes hostIP : ${hostIP}from K8S API`)
         callback(null, hostIP)
       } else {
-        var err = `http-helper-functions: unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
-        console.log(err)
+        var err = `unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
+        log('http-helper-functions:getHostIPFromK8SThen', err)
         callback(err)
       }
     })
   })
   clientReq.on('error', function (err) {
-    console.log(`getHostIPFromK8SThen: error ${err}`)
+    log('http-helper-functions:getHostIPFromK8SThen', `error ${err}`)
   })
   clientReq.end()
 }
@@ -55,12 +60,12 @@ function getHostIPFromK8SThen(callback) {
 function getHostIPFromFileThen(callback) {
   fs.readFile('/proc/net/route', function (error, data) {
     if (error) {
-      console.log('http-helper-functions: unable to resolve Host IP.',  error)
+      log('http-helper-functions:getHostIPFromFileThen', `unable to resolve Host IP. ${error}`)
       callback(error)
     } else {
       var hexHostIP = data.toString().split('\n')[1].split('\t')[2]
       var hostIP = [3,2,1,0].map((i) => parseInt(hexHostIP.slice(i*2,i*2+2), 16)).join('.')
-      console.log(`http-helper-functions: retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
+      log('http-helper-functions:getHostIPFromFileThen', `retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
       callback(null, hostIP)
     }
   })
@@ -84,7 +89,7 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     callback = headers
     headers = {}
   }
-  console.log(`http-helper-functions:sendInternalRequest method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
+  log('http-helper-functions:sendInternalRequest', `method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
   var keys = Object.keys(headers).map(x=>x.toLowerCase())
   if (keys.indexOf('accept') == -1)
     headers['accept'] = 'application/json'
@@ -113,7 +118,7 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     callback(null, clientRes)
   })
   clientReq.on('error', function (err) {
-    console.log(`sendInternalRequest: error ${err}`)
+    log('http-helper-functions:sendInternalRequest', `error ${err}`)
     callback(err)
   })
   if (body) 
@@ -145,7 +150,7 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
     callback = headers
     headers = {}
   }
-  console.log(`http-helper-functions:sendRequest method: ${method} url: ${targetUrl}`)
+  console.log('http-helper-functions:sendRequest', `method: ${method} url: ${targetUrl}`)
   targetUrl = url.resolve(`http://${req.headers.host}${req.url}`, targetUrl)
   var keys = Object.keys(headers).map(x=>x.toLowerCase())
   if (keys.indexOf('accept') == -1)
@@ -172,7 +177,7 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
     callback(null, clientRes)
   })
   clientReq.on('error', function (err) {
-    console.log(`http-helper-functions:sendRequest: url: ${targetUrl} ${err}`)
+    log('http-helper-functions:sendRequest', `url: ${targetUrl} ${err}`)
     callback(err)
   })
   if (body)
@@ -195,7 +200,7 @@ function getServerPostObject(req, res, callback) {
         jso = JSON.parse(body)
       }
       catch (err) {
-        console.log(body)
+        log('http-helper-functions:sendRequest', body)
         badRequest(res, `invalid JSON: ${err.message} body: ${body}` )
       }
       if (jso)
