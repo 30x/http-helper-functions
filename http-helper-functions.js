@@ -450,16 +450,12 @@ function setStandardCreationProperties(req, resource, user) {
     resource.creator = user
   if (resource.modifier)
     return 'may not set modifier'
-  else
-    resource.modifier = user
   if (resource.created)
     return 'may not set created'
   else
     resource.created = new Date().toISOString()
   if (resource.modified)
     return 'may not set modified'
-  else
-    resource.modified = resource.created
   return null
 }
 
