@@ -100,7 +100,7 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
-  if (flowThroughHeaders.authorization !== undefined)
+  if (headers.authorization === undefined && flowThroughHeaders.authorization !== undefined)
     headers.authorization = flowThroughHeaders.authorization 
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
