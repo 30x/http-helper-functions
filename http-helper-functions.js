@@ -160,7 +160,7 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
-  if (req.headers.authorization !== undefined)
+  if (headers.authorization === undefined && req.headers.authorization !== undefined)
     headers.authorization = req.headers.authorization 
   var urlParts = url.parse(targetUrl)
   var options = {
