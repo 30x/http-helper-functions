@@ -3,6 +3,7 @@ const http = require('http')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
+const util = require('util')
 var keepAliveAgent = new http.Agent({ keepAlive: true })
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
@@ -90,13 +91,14 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     headers = {}
   }
   log('http-helper-functions:sendInternalRequest', `method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
-  var keys = Object.keys(headers).map(x=>x.toLowerCase())
-  if (keys.indexOf('accept') == -1)
+  var headerNames = Object.keys(headers).map(x=>x.toLowerCase())
+  var flowThroughHeaderNames = Object.keys(flowThroughHeaders).map(x=>x.toLowerCase())
+  if (headerNames.indexOf('accept') == -1)
     headers['accept'] = 'application/json'
-  if (keys.indexOf('host') == -1)
+  if (headerNames.indexOf('host') == -1 && flowThroughHeaderNames.indexOf('host') > -1)
     headers['host'] = flowThroughHeaders.host
   if (body) {
-    if (keys.indexOf('content-type') == -1)
+    if (headerNames.indexOf('content-type') == -1)
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
@@ -152,11 +154,11 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
   }
   console.log('http-helper-functions:sendRequest', `method: ${method} url: ${targetUrl}`)
   targetUrl = url.resolve(`http://${req.headers.host}${req.url}`, targetUrl)
-  var keys = Object.keys(headers).map(x=>x.toLowerCase())
-  if (keys.indexOf('accept') == -1)
+  var headerNames = Object.keys(headers).map(x=>x.toLowerCase())
+  if (headerNames.indexOf('accept') == -1)
     headers['accept'] = 'application/json'
   if (body) {
-    if (keys.indexOf('content-type') == -1)
+    if (headerNames.indexOf('content-type') == -1)
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
