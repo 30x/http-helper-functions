@@ -15,7 +15,7 @@ const https = require('https')
 const fs = require('fs')
 
 function log(funcionName, text) {
-  console.log(Date.now(), process.env.COMPONENT, funcionName, text)
+  console.log(Date.now(), process.env.COMPONENT_NAME, funcionName, text)
 }
 
 function getHostIPFromK8SThen(callback) {
@@ -273,7 +273,7 @@ function methodNotAllowed(req, res, allow) {
 }
 
 function notFound(req, res, body) {
-  body = body || `Not Found. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
+  body = body || `Not Found. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
   body = JSON.stringify(body)
   res.writeHead(404, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
@@ -281,7 +281,7 @@ function notFound(req, res, body) {
 }
 
 function forbidden(req, res, body) {
-  body = body || `Forbidden. component: ${process.env.COMPONENT} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
+  body = body || `Forbidden. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
   body = JSON.stringify(body)
   res.writeHead(403, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
