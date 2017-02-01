@@ -81,7 +81,7 @@ function getHostIPThen(callback) {
   })
 }
 
-function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, callback) {
+function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   if (pathRelativeURL.startsWith('//')) // amazingly, url.parse parses URLs that begin with // wrongly
     pathRelativeURL = url.parse(INTERNAL_SCHEME + ':' + pathRelativeURL).path
   else
@@ -91,19 +91,14 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
     headers = {}
   }
   log('http-helper-functions:sendInternalRequest', `method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
-  var headerNames = Object.keys(headers).map(x=>x.toLowerCase())
-  var flowThroughHeaderNames = Object.keys(flowThroughHeaders).map(x=>x.toLowerCase())
-  if (headerNames.indexOf('accept') == -1)
-    headers['accept'] = 'application/json'
-  if (headerNames.indexOf('host') == -1 && flowThroughHeaderNames.indexOf('host') > -1)
-    headers['host'] = flowThroughHeaders.host
+  if (headers.accept === undefined)
+    headers.accept = 'application/json'
   if (body) {
-    if (headerNames.indexOf('content-type') == -1)
+    var contentType = headers['content-type']
+    if (contentType == null)
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
-  if (headers.authorization === undefined && flowThroughHeaders.authorization !== undefined)
-    headers.authorization = flowThroughHeaders.authorization 
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   var options = {
@@ -128,15 +123,14 @@ function sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, 
   clientReq.end()
 }
 
-function sendInternalRequestThen(req, res, pathRelativeURL, method, body, headers, callback) {
-  var flowThroughHeaders = req.headers
-  if (typeof headers == 'function') {
-    callback = headers
+function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, callback) {
+  if (typeof headers == 'function')
+    [callback, headers] = [headers, {}]
+  else if (headers == null)
     headers = {}
-  }
-  sendInternalRequest(flowThroughHeaders, pathRelativeURL, method, body, headers, function(err, clientRes) {
+  sendInternalRequest(method, pathRelativeURL, headers, body, function(err, clientRes) {
     if (err) {
-      err.host = flowThroughHeaders.host 
+      err.host = headers.host 
       err.path = pathRelativeURL
       err.internalRouterHost = process.env.INTERNAL_SY_ROUTER_HOST
       err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
@@ -144,6 +138,18 @@ function sendInternalRequestThen(req, res, pathRelativeURL, method, body, header
     } else 
       callback(clientRes)
   })
+}
+
+function flowThroughHeaders(req) {
+  var headers = {}
+  var reqHeaders = req.headers
+  var auth = reqHeaders.authorization
+  if (auth)
+    headers.authorization = auth
+  var host = reqHeaders.host
+  if (host)
+    headers.host = host
+  return headers
 }
 
 function sendRequest(req, targetUrl, method, body, headers, callback) {
@@ -536,3 +542,4 @@ exports.toHTML=toHTML
 exports.uuid4 = uuid4
 exports.getHostIPThen = getHostIPThen
 exports.sendRequest = sendRequest
+exports.flowThroughHeaders = flowThroughHeaders
