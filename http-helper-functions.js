@@ -158,7 +158,7 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
     callback = headers
     headers = {}
   }
-  console.log('http-helper-functions:sendRequest', `method: ${method} url: ${targetUrl}`)
+  log('http-helper-functions:sendRequest', `method: ${method} url: ${targetUrl}`)
   targetUrl = url.resolve(`http://${req.headers.host}${req.url}`, targetUrl)
   var headerNames = Object.keys(headers).map(x=>x.toLowerCase())
   if (headerNames.indexOf('accept') == -1)
