@@ -96,7 +96,10 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   if (body) {
     var contentType = headers['content-type']
     if (contentType == null)
-      headers['content-type'] = 'application/json'
+      contentType = headers['content-type'] = 'application/json'
+    if (!(typeof body == 'string' || (typeof body == 'object' && (body instanceof Buffer || body instanceof ArrayBuffer)))) // body is not a string, Buffer or ArrayBuffer
+      if (contentType == 'application/json')
+        body = JSON.stringify(body)
     headers['content-length'] = Buffer.byteLength(body)
   }
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
