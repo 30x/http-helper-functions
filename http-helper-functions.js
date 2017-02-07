@@ -1,5 +1,6 @@
 'use strict'
 const http = require('http')
+const https = require('https')
 const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
@@ -11,7 +12,6 @@ const INTERNALURLPREFIX = 'scheme://authority'
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 
-const https = require('https')
 const fs = require('fs')
 
 function log(funcionName, text) {
@@ -114,7 +114,7 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   }
   if (INTERNAL_SY_ROUTER_PORT)
     options.port = INTERNAL_SY_ROUTER_PORT
-  var clientReq = http.request(options, function(clientRes) {
+  var clientReq = (INTERNAL_SCHEME == 'https' ? https : http).request(options, function(clientRes) {
     callback(null, clientRes)
   })
   clientReq.on('error', function (err) {
@@ -161,14 +161,12 @@ function flowThroughHeaders(req) {
   return headers
 }
 
-function sendRequest(req, targetUrl, method, body, headers, callback) {
-  var flowThroughHeaders = req.headers
+function sendExternalRequest(method, targetUrl, headers, body, callback) {
   if (typeof headers == 'function') {
     callback = headers
     headers = {}
   }
-  log('http-helper-functions:sendRequest', `method: ${method} url: ${targetUrl}`)
-  targetUrl = url.resolve(`http://${req.headers.host}${req.url}`, targetUrl)
+  log('http-helper-functions:sendExternalRequest', `method: ${method} url: ${targetUrl}`)
   var headerNames = Object.keys(headers).map(x=>x.toLowerCase())
   if (headerNames.indexOf('accept') == -1)
     headers['accept'] = 'application/json'
@@ -177,8 +175,6 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
       headers['content-type'] = 'application/json'
     headers['content-length'] = Buffer.byteLength(body)
   }
-  if (headers.authorization === undefined && req.headers.authorization !== undefined)
-    headers.authorization = req.headers.authorization 
   var urlParts = url.parse(targetUrl)
   var options = {
     protocol: urlParts.protocol,
@@ -190,11 +186,11 @@ function sendRequest(req, targetUrl, method, body, headers, callback) {
   }
   if (urlParts.port)
     options.port = urlParts.port
-  var clientReq = http.request(options, function(clientRes) {
+  var clientReq = (urlParts.protocol == 'https:' ? https : http).request(options, function(clientRes) {
     callback(null, clientRes)
   })
   clientReq.on('error', function (err) {
-    log('http-helper-functions:sendRequest', `url: ${targetUrl} ${err}`)
+    log('http-helper-functions:sendExternalRequest', `url: ${targetUrl} ${err}`)
     callback(err)
   })
   if (body)
@@ -217,10 +213,10 @@ function getServerPostObject(req, res, callback) {
         jso = JSON.parse(body)
       }
       catch (err) {
-        log('http-helper-functions:sendRequest', body)
+        log('http-helper-functions:getServerPostObject', body)
         badRequest(res, `invalid JSON: ${err.message} body: ${body}` )
       }
-      if (jso)
+      if (jso) 
         callback(internalizeURLs(jso, req.headers.host, contentType))
     } else
       badRequest(res, 'input must be JSON')
@@ -390,15 +386,16 @@ function internalizeURL(anURL, authority) {
   var httpString = 'http://' + authority
   var httpsString = 'https://' + authority  
   var schemelessString = '//' + authority  
-  anURL = decodeURIComponent(anURL)
   if (anURL.startsWith(httpString)) 
-    return INTERNALURLPREFIX + anURL.substring(httpString.length)
+    return INTERNALURLPREFIX + decodeURIComponent(anURL.substring(httpString.length))
   else if (anURL.startsWith(httpsString)) 
-    return INTERNALURLPREFIX + anURL.substring(httpsString.length)
+    return INTERNALURLPREFIX + decodeURIComponent(anURL.substring(httpsString.length))
   else if (anURL.startsWith(schemelessString)) 
-    return INTERNALURLPREFIX + anURL.substring(schemelessString.length)
+    return INTERNALURLPREFIX + decodeURIComponent(anURL.substring(schemelessString.length))
   else if (anURL.startsWith('/')) 
-    return INTERNALURLPREFIX + anURL
+    return INTERNALURLPREFIX + decodeURIComponent(anURL)
+  else if (anURL.startsWith('http://') || anURL.startsWith('https://'))
+    return decodeURIComponent(anURL)
   else
     return anURL
 }
@@ -569,7 +566,7 @@ exports.sendInternalRequest=sendInternalRequest
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
 exports.getHostIPThen = getHostIPThen
-exports.sendRequest = sendRequest
+exports.sendExternalRequest = sendExternalRequest
 exports.flowThroughHeaders = flowThroughHeaders
 exports.withInternalResourceDo = withInternalResourceDo
 exports.getClientResponseObject = getClientResponseObject
