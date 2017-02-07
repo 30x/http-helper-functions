@@ -140,6 +140,12 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
   })
 }
 
+function withInternalResourceDo(res, pathRelativeURL, headers, callback) {
+  sendInternalRequestThen(res, 'GET', pathRelativeURL, headers, null, function(clientRes) {
+    getClientResponseObject(clientRes, headers.host, callback)
+  })
+}
+
 function flowThroughHeaders(req) {
   var headers = {}
   var reqHeaders = req.headers
@@ -233,6 +239,25 @@ function getClientResponseBody(res, callback) {
   var body = ''
   res.on('data', chunk => body += chunk)
   res.on('end', () => callback(body))
+}
+
+function getClientResponseObject(res, host, callback) {
+  getClientResponseBody(res, function(body) {
+    var contentType = res.headers['content-type']
+    if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json'))) {
+      var jso
+      try {
+        jso = JSON.parse(body)
+      }
+      catch (err) {
+        log('http-helper-functions:getClientResponseObject', body)
+        internalError(res, `invalid JSON: ${err.message} body: ${body}` )
+      }
+      if (jso)
+        callback(internalizeURLs(jso, host, contentType))
+    } else
+      internalError(res, 'response not JSON')
+  })
 }
 
 function getClientResponseBuffer(res, callback) {
@@ -543,3 +568,5 @@ exports.uuid4 = uuid4
 exports.getHostIPThen = getHostIPThen
 exports.sendRequest = sendRequest
 exports.flowThroughHeaders = flowThroughHeaders
+exports.withInternalResourceDo = withInternalResourceDo
+exports.getClientResponseObject = getClientResponseObject
