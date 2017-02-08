@@ -81,16 +81,7 @@ function getHostIPThen(callback) {
   })
 }
 
-function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
-  if (pathRelativeURL.startsWith('//')) // amazingly, url.parse parses URLs that begin with // wrongly
-    pathRelativeURL = url.parse(INTERNAL_SCHEME + ':' + pathRelativeURL).path
-  else
-    pathRelativeURL = url.parse(pathRelativeURL).path
-  if (typeof headers == 'function') {
-    callback = headers
-    headers = {}
-  }
-  log('http-helper-functions:sendInternalRequest', `method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
+function fixUpHeadersAndBody(headers, body) {
   if (headers.accept === undefined)
     headers.accept = 'application/json'
   if (body) {
@@ -101,7 +92,21 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
       if (contentType == 'application/json')
         body = JSON.stringify(body)
     headers['content-length'] = Buffer.byteLength(body)
+  }  
+  return body
+}
+
+function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
+  if (pathRelativeURL.startsWith('//')) // amazingly, url.parse parses URLs that begin with // wrongly
+    pathRelativeURL = url.parse(INTERNAL_SCHEME + ':' + pathRelativeURL).path
+  else
+    pathRelativeURL = url.parse(pathRelativeURL).path
+  if (typeof headers == 'function') {
+    callback = headers
+    headers = {}
   }
+  log('http-helper-functions:sendInternalRequest', `method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
+  body = fixUpHeadersAndBody(headers, body)
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   var options = {
@@ -137,6 +142,7 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
       err.path = pathRelativeURL
       err.internalRouterHost = process.env.INTERNAL_SY_ROUTER_HOST
       err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
+      log('http-helper-functions:sendInternalRequestThen', `error ${err}`)
       internalError(res, err)
     } else 
       callback(clientRes)
@@ -167,14 +173,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
     headers = {}
   }
   log('http-helper-functions:sendExternalRequest', `method: ${method} url: ${targetUrl}`)
-  var headerNames = Object.keys(headers).map(x=>x.toLowerCase())
-  if (headerNames.indexOf('accept') == -1)
-    headers['accept'] = 'application/json'
-  if (body) {
-    if (headerNames.indexOf('content-type') == -1)
-      headers['content-type'] = 'application/json'
-    headers['content-length'] = Buffer.byteLength(body)
-  }
+  body = fixUpHeadersAndBody(headers, body)
   var urlParts = url.parse(targetUrl)
   var options = {
     protocol: urlParts.protocol,
@@ -196,6 +195,23 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   if (body)
     clientReq.write(body)
   clientReq.end()    
+}
+
+function sendExternalRequestThen(res, method, targetUrl, headers, body, callback) {
+  if (typeof headers == 'function')
+    [callback, headers] = [headers, {}]
+  else if (headers == null)
+    headers = {}
+  sendExternalRequest(method, targetUrl, headers, body, function(err, clientRes) {
+    if (err) {
+      err.headers = headers 
+      err.targetUrl = targetUrl
+      err.method = method
+      log('http-helper-functions:sendExternalRequestThen', `error ${err}`)
+      internalError(res, err)
+    } else 
+      callback(clientRes)
+  })  
 }
 
 function getServerPostObject(req, res, callback) {
@@ -567,6 +583,7 @@ exports.toHTML=toHTML
 exports.uuid4 = uuid4
 exports.getHostIPThen = getHostIPThen
 exports.sendExternalRequest = sendExternalRequest
+exports.sendExternalRequestThen = sendExternalRequestThen
 exports.flowThroughHeaders = flowThroughHeaders
 exports.withInternalResourceDo = withInternalResourceDo
 exports.getClientResponseObject = getClientResponseObject
