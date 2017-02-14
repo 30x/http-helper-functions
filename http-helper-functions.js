@@ -357,10 +357,10 @@ function duplicate(res, err) {
   res.end(body)
 }   
 
-function found(req, res, body, etag, location, contentType) {
+function found(req, res, body, etag, contentLocation, contentType) {
   var headers = {}
-  if (location !== undefined)
-    headers['Content-Location'] = externalizeURLs(location, req.headers.host) 
+  if (contentLocation !== undefined)
+    headers['Content-Location'] = externalizeURLs(contentLocation, req.headers.host) 
   else
     headers['Content-Location'] = req.url //todo - handle case where req.url includes http://authority
   if (etag !== undefined) 
