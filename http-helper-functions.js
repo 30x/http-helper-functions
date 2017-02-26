@@ -476,7 +476,7 @@ function mergePatch(target, patch) {
 function applyPatch(req, res, target, patch, callback) {
   if ('content-type' in req.headers) 
     if (req.headers['content-type'] == 'application/merge-patch+json')
-      callback(mergePatch(target, patch))
+      callback(mergePatch(target, patch), req.headers['content-type'])
     else if (req.headers['content-type'] == 'application/json-patch+json') {
       try {
         var patchedDoc = jsonpatch.apply_patch(target, patch)
@@ -484,7 +484,7 @@ function applyPatch(req, res, target, patch, callback) {
       catch(err) {
         return badRequest(res, `err: ${err} patch: ${JSON.stringify(patch)}`)
       }
-      callback(patchedDoc)
+      callback(patchedDoc, req.headers['content-type'])
     }
     else
       badRequest(res, `unknown PATCH content-type: ${req.headers['content-type']}`)  
