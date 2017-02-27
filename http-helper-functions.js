@@ -399,19 +399,18 @@ function respond(req, res, status, headers, body, contentType) {
 }
 
 function internalizeURL(anURL, authority) {
+  var decodedURL = decodeURIComponent(anURL)
   var httpString = 'http://' + authority
   var httpsString = 'https://' + authority  
   var schemelessString = '//' + authority  
-  if (anURL.startsWith(httpString)) 
-    return INTERNALURLPREFIX + decodeURIComponent(anURL.substring(httpString.length))
-  else if (anURL.startsWith(httpsString)) 
-    return INTERNALURLPREFIX + decodeURIComponent(anURL.substring(httpsString.length))
-  else if (anURL.startsWith(schemelessString)) 
-    return INTERNALURLPREFIX + decodeURIComponent(anURL.substring(schemelessString.length))
-  else if (anURL.startsWith('/')) 
-    return INTERNALURLPREFIX + decodeURIComponent(anURL)
-  else if (anURL.startsWith('http://') || anURL.startsWith('https://'))
-    return decodeURIComponent(anURL)
+  if (decodedURL.startsWith(httpString)) 
+    return INTERNALURLPREFIX + decodedURL.substring(httpString.length)
+  else if (decodedURL.startsWith(httpsString)) 
+    return INTERNALURLPREFIX + decodedURL.substring(httpsString.length)
+  else if (decodedURL.startsWith(schemelessString)) 
+    return INTERNALURLPREFIX + decodedURL.substring(schemelessString.length)
+  else if (decodedURL.startsWith('/') || decodedURL.startsWith('http')) 
+    return INTERNALURLPREFIX + decodedURL
   else
     return anURL
 }
@@ -430,7 +429,7 @@ function internalizeURLs(jsObject, authority, contentType) {
         if (jsObject.hasOwnProperty(key)) 
           jsObject[key] = internalizeURLs(jsObject[key], authority)
       }
-  else if (typeof jsObject == 'string') 
+  else if (typeof jsObject == 'string') // todo check that it looks like a plausible URL
     return internalizeURL(jsObject, authority)
   return jsObject
 }
