@@ -412,9 +412,10 @@ function internalizeURL(anURL, authority) {
   else if (decodedURL.startsWith('/') || decodedURL.startsWith('http')) 
     return INTERNALURLPREFIX + decodedURL
   else
-    return anURL
+    return decodedURL
 }
 
+var re = /^[^\s"'<>]+$/
 function internalizeURLs(jsObject, authority, contentType) {
   //strip the http://authority or https://authority from the front of any urls
   if (Array.isArray(jsObject))
@@ -429,7 +430,7 @@ function internalizeURLs(jsObject, authority, contentType) {
         if (jsObject.hasOwnProperty(key)) 
           jsObject[key] = internalizeURLs(jsObject[key], authority)
       }
-  else if (typeof jsObject == 'string') // todo check that it looks like a plausible URL
+  else if (typeof jsObject == 'string' && (jsObject.startsWith('http') || jsObject.startsWith('/') || jsObject.startsWith('%2F')) && jsObject.match(re))
     return internalizeURL(jsObject, authority)
   return jsObject
 }
