@@ -89,7 +89,7 @@ function fixUpHeadersAndBody(headers, body) {
     if (contentType == null)
       contentType = headers['content-type'] = 'application/json'
     if (!(typeof body == 'string' || (typeof body == 'object' && (body instanceof Buffer || body instanceof ArrayBuffer)))) // body is not a string, Buffer or ArrayBuffer
-      if (contentType == 'application/json')
+      if (contentType.startsWith('application') && contentType.endsWith('json'))
         body = JSON.stringify(body)
     headers['content-length'] = Buffer.byteLength(body)
   }  
