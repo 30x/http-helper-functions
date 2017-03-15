@@ -59,26 +59,19 @@ function getHostIPFromK8SThen(callback) {
 }
 
 function getHostIPFromFileThen(callback) {
-  fs.readFile('/proc/net/route', function (error, data) {
-    if (error) {
-      log('http-helper-functions:getHostIPFromFileThen', `unable to resolve Host IP. ${error}`)
-      callback(error)
-    } else {
-      var hexHostIP = data.toString().split('\n')[1].split('\t')[2]
-      var hostIP = [3,2,1,0].map((i) => parseInt(hexHostIP.slice(i*2,i*2+2), 16)).join('.')
-      log('http-helper-functions:getHostIPFromFileThen', `retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
-      callback(null, hostIP)
-    }
-  })
+  try {
+    data = fs.readFileSync('/proc/net/route')
+    var hexHostIP = data.toString().split('\n')[1].split('\t')[2]
+    var hostIP = [3,2,1,0].map((i) => parseInt(hexHostIP.slice(i*2,i*2+2), 16)).join('.')
+    log('http-helper-functions:getHostIPFromFileThen', `retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
+    callback(null, hostIP)
+  } catch (e) {
+    callback(err)
+  }    
 }
 
 function getHostIPThen(callback) {
-  getHostIPFromFileThen(function (error, hostIP) {
-    if (error) 
-      callback(error)
-    else
-      callback(null, hostIP)
-  })
+  getHostIPFromFileThen(calback)
 }
 
 function fixUpHeadersAndBody(headers, body) {
