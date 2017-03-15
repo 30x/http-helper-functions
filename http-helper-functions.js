@@ -71,7 +71,7 @@ function getHostIPFromFileThen(callback) {
 }
 
 function getHostIPThen(callback) {
-  getHostIPFromFileThen(calback)
+  getHostIPFromFileThen(callback)
 }
 
 function fixUpHeadersAndBody(headers, body) {
