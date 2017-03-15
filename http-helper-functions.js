@@ -59,15 +59,11 @@ function getHostIPFromK8SThen(callback) {
 }
 
 function getHostIPFromFileThen(callback) {
-  try {
-    data = fs.readFileSync('/proc/net/route')
-    var hexHostIP = data.toString().split('\n')[1].split('\t')[2]
-    var hostIP = [3,2,1,0].map((i) => parseInt(hexHostIP.slice(i*2,i*2+2), 16)).join('.')
-    log('http-helper-functions:getHostIPFromFileThen', `retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
-    callback(null, hostIP)
-  } catch (e) {
-    callback(err)
-  }    
+  data = fs.readFileSync('/proc/net/route')
+  var hexHostIP = data.toString().split('\n')[1].split('\t')[2]
+  var hostIP = [3,2,1,0].map((i) => parseInt(hexHostIP.slice(i*2,i*2+2), 16)).join('.')
+  log('http-helper-functions:getHostIPFromFileThen', `retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
+  callback(null, hostIP)
 }
 
 function getHostIPThen(callback) {
