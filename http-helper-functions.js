@@ -166,7 +166,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   var urlParts = url.parse(targetUrl)
   var options = {
     protocol: urlParts.protocol,
-    hostname: urlParts.hostName,
+    hostname: urlParts.hostname,
     path: urlParts.path,
     method: method,
     headers: headers,
