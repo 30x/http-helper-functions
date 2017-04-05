@@ -5,9 +5,11 @@ const jsonpatch= require('jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
 const util = require('util')
-var keepAliveAgent = new http.Agent({ keepAlive: true })
+const httpKeepAliveAgent = new http.Agent({ keepAlive: true })
+const httpsKeepAliveAgent = new https.Agent({ keepAlive: true })
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
+const INTERNAL_PROTOCOL = INTERNAL_SCHEME + ':'
 const INTERNALURLPREFIX = ''
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
@@ -16,6 +18,10 @@ const fs = require('fs')
 
 function log(funcionName, text) {
   console.log(Date.now(), process.env.COMPONENT_NAME, funcionName, text)
+}
+
+function keepAliveAgent(protocol) {
+  return protocol == 'https:' ? httpsKeepAliveAgent : httpKeepAliveAgent
 }
 
 function getHostIPFromK8SThen(callback) {
@@ -87,7 +93,7 @@ function fixUpHeadersAndBody(headers, body) {
 
 function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   if (pathRelativeURL.startsWith('//')) // amazingly, url.parse parses URLs that begin with // wrongly
-    pathRelativeURL = url.parse(INTERNAL_SCHEME + ':' + pathRelativeURL).path
+    pathRelativeURL = url.parse(INTERNAL_PROTOCOL + pathRelativeURL).path
   else
     pathRelativeURL = url.parse(pathRelativeURL).path
   if (typeof headers == 'function') {
@@ -99,12 +105,12 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   var options = {
-    protocol: `${INTERNAL_SCHEME}:`,
+    protocol: INTERNAL_PROTOCOL,
     hostname: process.env.INTERNAL_SY_ROUTER_HOST,
     path: pathRelativeURL,
     method: method,
     headers: headers,
-    agent: keepAliveAgent
+    agent: keepAliveAgent(INTERNAL_PROTOCOL)
   }
   if (INTERNAL_SY_ROUTER_PORT)
     options.port = INTERNAL_SY_ROUTER_PORT
@@ -140,7 +146,7 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
 
 function withInternalResourceDo(res, pathRelativeURL, headers, callback) {
   sendInternalRequestThen(res, 'GET', pathRelativeURL, headers, null, function(clientRes) {
-    getClientResponseObject(clientRes, headers.host, callback)
+    getClientResponseObject(res, clientRes, headers.host, callback)
   })
 }
 
@@ -170,7 +176,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
     path: urlParts.path,
     method: method,
     headers: headers,
-    agent: keepAliveAgent
+    agent: keepAliveAgent(urlParts.protocol)
   }
   if (urlParts.port)
     options.port = urlParts.port
@@ -245,7 +251,7 @@ function getClientResponseBody(res, callback) {
   res.on('end', () => callback(body))
 }
 
-function getClientResponseObject(res, host, callback) {
+function getClientResponseObject(errorHandler, res, host, callback) {
   getClientResponseBody(res, function(body) {
     var contentType = res.headers['content-type']
     if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json'))) {
@@ -255,12 +261,12 @@ function getClientResponseObject(res, host, callback) {
       }
       catch (err) {
         log('http-helper-functions:getClientResponseObject', body)
-        internalError(res, `invalid JSON: ${err.message} body: ${body}` )
+        internalError(errorHandler, `invalid JSON: ${err.message} body: ${body}` )
       }
       if (jso)
         callback(internalizeURLs(jso, host, contentType))
     } else
-      internalError(res, 'response not JSON')
+      internalError(errorHandler, 'response not JSON: ' % contentType)
   })
 }
 
@@ -407,20 +413,21 @@ function internalizeURL(anURL, authority) {
 var re = /^[^\s"'<>]+$/
 function internalizeURLs(jsObject, authority, contentType) {
   //strip the http://authority or https://authority from the front of any urls
-  if (Array.isArray(jsObject))
-    for (var i = 0; i < jsObject.length; i++)
-      jsObject[i] = internalizeURLs(jsObject[i], authority, contentType)
-  else if (typeof jsObject == 'object')
-    if (contentType == 'application/json-patch+json') {
-      if (jsObject['value'] !== undefined)
-        jsObject['value'] = internalizeURLs(jsObject['value'], authority)
-    } else
-      for (var key in jsObject) {
-        if (jsObject.hasOwnProperty(key)) 
-          jsObject[key] = internalizeURLs(jsObject[key], authority)
-      }
-  else if (typeof jsObject == 'string' && (jsObject.startsWith('http') || jsObject.startsWith('/') || jsObject.startsWith('%2F')) && jsObject.match(re))
-    return internalizeURL(jsObject, authority)
+  if (authority)
+    if (Array.isArray(jsObject))
+      for (var i = 0; i < jsObject.length; i++)
+        jsObject[i] = internalizeURLs(jsObject[i], authority, contentType)
+    else if (typeof jsObject == 'object')
+      if (contentType == 'application/json-patch+json') {
+        if (jsObject['value'] !== undefined)
+          jsObject['value'] = internalizeURLs(jsObject['value'], authority)
+      } else
+        for (var key in jsObject) {
+          if (jsObject.hasOwnProperty(key)) 
+            jsObject[key] = internalizeURLs(jsObject[key], authority)
+        }
+    else if (typeof jsObject == 'string' && (jsObject.startsWith('http') || jsObject.startsWith('/') || jsObject.startsWith('%2F')) && jsObject.match(re))
+      return internalizeURL(jsObject, authority)
   return jsObject
 }
 
@@ -559,7 +566,6 @@ exports.internalizeURL = internalizeURL
 exports.internalizeURLs = internalizeURLs
 exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
-exports.getUserFromToken = exports.getUserFromToken
 exports.forbidden = forbidden
 exports.unauthorized = unauthorized
 exports.applyPatch = applyPatch
