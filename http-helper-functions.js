@@ -118,7 +118,9 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
     callback(null, clientRes)
   })
   clientReq.on('error', function (err) {
-    log('http-helper-functions:sendInternalRequest', `error ${err}`)
+    var the_options = Object.assign({}, options)
+    delete the_options.agent
+    log('http-helper-functions:sendInternalRequest', `error ${err} options: options: ${JSON.stringify(the_options)}`)
     callback(err)
   })
   if (body) 
