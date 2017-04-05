@@ -137,7 +137,7 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
       err.path = pathRelativeURL
       err.internalRouterHost = process.env.INTERNAL_SY_ROUTER_HOST
       err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
-      log('http-helper-functions:sendInternalRequestThen', `error ${err}`)
+      log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${JSON.stringify(headers)}`)
       internalError(res, err)
     } else 
       callback(clientRes)
