@@ -13,6 +13,7 @@ const INTERNAL_PROTOCOL = INTERNAL_SCHEME + ':'
 const INTERNALURLPREFIX = ''
 const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
+const MIN_TOKEN_VALIDITY_PERIOD = process.env.MIN_TOKEN_VALIDITY_PERIOD || 5000
 
 const fs = require('fs')
 
@@ -278,15 +279,23 @@ function getClientResponseBuffer(res, callback) {
   res.on('end', () => callback(Buffer.concat(body)))
 }
 
-function getUserFromToken(token) {
-  var claims64 = token.split('.')
-  if (claims64.length != 3) {
+function getClaims(token) {
+  if (typeof token == 'string') {
+    var claims64 = token.split('.')
+    if (claims64.length != 3) {
+      return null
+    } else {
+      var claimsString = new Buffer(claims64[1], 'base64').toString()
+      var claims = JSON.parse(claimsString)
+      return claims
+    }
+  } else
     return null
-  } else {
-    var claimsString = new Buffer(claims64[1], 'base64').toString()
-    var claims = JSON.parse(claimsString)
-    return `${claims.iss}#${claims.sub}`
-  }
+}
+
+function getUserFromToken(token) {
+  var claims = getClaims(token)
+  return claims == null ? null : `${claims.iss}#${claims.sub}`
 }
 
 function getUser(auth) {
@@ -553,6 +562,27 @@ function uuid4() {
 }
 // End of section of code adapted from https://github.com/broofa/node-uuid4 under MIT License
 
+function withValidClientToken(errorHandler, token, clientID, clientSecret, authEndPoint, callback) {
+  var claims = getClaims(token)
+  if (claims != null && claims.exp > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
+    callback()
+  else {
+    var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
+    var body = `grant_type=client_credentials&client_id=${clientID}&client_secret=${clientSecret}`
+    sendExternalRequestThen(errorHandler, 'POST', authEndPoint, headers, body, function(clientRes) {
+      getClientResponseBody(clientRes, function(body) {
+        if (clientRes.statusCode == 200) {
+          token = JSON.parse(body).access_token
+          callback(token)
+        } else {
+          errorHandler.writeHead(500)
+          errorHandler.end(body)
+        }
+      })
+    })
+  }
+}
+
 exports.getServerPostObject = getServerPostObject
 exports.getServerPostBuffer = getServerPostBuffer
 exports.getClientResponseBody = getClientResponseBody
@@ -584,3 +614,4 @@ exports.sendExternalRequestThen = sendExternalRequestThen
 exports.flowThroughHeaders = flowThroughHeaders
 exports.withInternalResourceDo = withInternalResourceDo
 exports.getClientResponseObject = getClientResponseObject
+exports.withValidClientToken = withValidClientToken
