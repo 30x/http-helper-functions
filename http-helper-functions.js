@@ -149,7 +149,12 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
 
 function withInternalResourceDo(res, pathRelativeURL, headers, callback) {
   sendInternalRequestThen(res, 'GET', pathRelativeURL, headers, null, function(clientRes) {
-    getClientResponseObject(res, clientRes, headers.host, callback)
+    getClientResponseObject(res, clientRes, headers.host, body => {
+      if (clientRes.statusCode == 200)
+        callback(body)
+      else
+        internalError(res, {msg: 'unable to retrieve internal resource', url: pathRelativeURL, statusCode: clientRes.statusCode, body: body})
+    })
   })
 }
 
