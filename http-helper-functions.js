@@ -211,7 +211,7 @@ function sendExternalRequestThen(res, method, targetUrl, headers, body, callback
       err.targetUrl = targetUrl
       err.method = method
       log('http-helper-functions:sendExternalRequestThen', `error ${err}`)
-      internalError(res, err)
+      internalError(res, {msg: `unable to send external request. method: ${method} url: ${targetURL}`, headers: headers, err: err})
     } else 
       callback(clientRes)
   })  
@@ -468,18 +468,18 @@ function externalizeURLs(jsObject, authority) {
 function mergePatch(target, patch) {
   if (typeof patch == 'object' && !Array.isArray(patch)) {
     if (typeof target != 'object')
-      target = {} // don't just return patch since it may have nulls perform the merge
+      target = {} // don't just return patch since it may have nulls — perform the merge
     else
       target = Object.assign({}, target)
-    for (var name in patch)
-      if (patch.hasOwnProperty(name)) {
-        var value = patch[name]
-        if (value === null) { 
-          if (name in target)
-            delete target[name]
-        } else
-          target[name] = mergePatch(target[name], value)
-      }
+    for (var name in patch) {
+      var value = patch[name]
+      if (value === null)
+        if (name in target)
+          delete target[name]
+        else {}
+      else
+        target[name] = mergePatch(target[name], value)
+    }
     return target
   } else
     return patch
@@ -575,13 +575,13 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, authE
     var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
     var body = `grant_type=client_credentials&client_id=${clientID}&client_secret=${clientSecret}`
     sendExternalRequestThen(errorHandler, 'POST', authEndPoint, headers, body, function(clientRes) {
-      getClientResponseBody(clientRes, function(body) {
+      getClientResponseBody(clientRes, function(resp_body) {
         if (clientRes.statusCode == 200) {
-          token = JSON.parse(body).access_token
+          token = JSON.parse(resp_body).access_token
           callback(token)
         } else {
-          errorHandler.writeHead(500)
-          errorHandler.end(body)
+          log('withValidClientToken', `'unable to retrieve token', authEndPoint: ${authEndPoint}, headers: ${JSON.stringify(headers)}`)
+          badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
         }
       })
     })
