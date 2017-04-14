@@ -303,15 +303,19 @@ function getUserFromToken(token) {
   return claims == null ? null : `${claims.iss}#${claims.sub}`
 }
 
-function getUser(auth) {
+function getToken(auth) {
   if (typeof auth == 'string'){
     var auth_parts = auth.match(/\S+/g)
     if (auth_parts.length < 2 || auth_parts[0].toLowerCase() != 'bearer')
       return null
     else
-      return getUserFromToken(auth_parts[1])
+      return auth_parts[1]
   } else
     return null
+}
+
+function getUser(auth) {
+  return getUserFromToken(getToken(auth))
 }
 
 function methodNotAllowed(req, res, allow) {
@@ -485,21 +489,21 @@ function mergePatch(target, patch) {
     return patch
 }
 
-function applyPatch(req, res, target, patch, callback) {
-  if ('content-type' in req.headers) 
-    if (req.headers['content-type'] == 'application/merge-patch+json')
-      callback(mergePatch(target, patch), req.headers['content-type'])
-    else if (req.headers['content-type'] == 'application/json-patch+json') {
+function applyPatch(reqHeaders, res, target, patch, callback) {
+  if ('content-type' in reqHeaders) 
+    if (reqHeaders['content-type'] == 'application/merge-patch+json')
+      callback(mergePatch(target, patch), reqHeaders['content-type'])
+    else if (reqHeaders['content-type'] == 'application/json-patch+json') {
       try {
         var patchedDoc = jsonpatch.apply_patch(target, patch)
       }
       catch(err) {
         return badRequest(res, `err: ${err} patch: ${JSON.stringify(patch)}`)
       }
-      callback(patchedDoc, req.headers['content-type'])
+      callback(patchedDoc, reqHeaders['content-type'])
     }
     else
-      badRequest(res, `unknown PATCH content-type: ${req.headers['content-type']}`)  
+      badRequest(res, `unknown PATCH content-type: ${reqHeaders['content-type']}`)  
   else 
     badRequest(res, 'PATCH headers missing content-type for patch')
 }
@@ -603,6 +607,7 @@ exports.internalizeURL = internalizeURL
 exports.internalizeURLs = internalizeURLs
 exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
+exports.getClaims = getClaims
 exports.forbidden = forbidden
 exports.unauthorized = unauthorized
 exports.applyPatch = applyPatch
