@@ -211,7 +211,7 @@ function sendExternalRequestThen(res, method, targetUrl, headers, body, callback
       err.targetUrl = targetUrl
       err.method = method
       log('http-helper-functions:sendExternalRequestThen', `error ${err}`)
-      internalError(res, {msg: `unable to send external request. method: ${method} url: ${targetURL}`, headers: headers, err: err})
+      internalError(res, {msg: `unable to send external request. method: ${method} url: ${targetUrl}`, headers: headers, err: err})
     } else 
       callback(clientRes)
   })  
@@ -262,19 +262,22 @@ function getClientResponseBody(res, callback) {
 function getClientResponseObject(errorHandler, res, host, callback) {
   getClientResponseBody(res, function(body) {
     var contentType = res.headers['content-type']
-    if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json'))) {
-      var jso
-      try {
-        jso = JSON.parse(body)
-      }
-      catch (err) {
-        log('http-helper-functions:getClientResponseObject', body)
-        internalError(errorHandler, `invalid JSON: ${err.message} body: ${body}` )
-      }
-      if (jso)
-        callback(internalizeURLs(jso, host, contentType))
-    } else
-      internalError(errorHandler, 'response not JSON: ' % contentType)
+    if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json')))
+      if (body == '') 
+        callback()
+      else {
+        var jso
+        try {
+          jso = JSON.parse(body)
+        }
+        catch (err) {
+          log('http-helper-functions:getClientResponseObject', body)
+          internalError(errorHandler, `invalid JSON: ${err.message} body: ${body}` )
+        }
+        if (jso)
+          callback(internalizeURLs(jso, host, contentType))
+      } else
+        internalError(errorHandler, 'response not JSON: ' % contentType)
   })
 }
 
@@ -571,20 +574,21 @@ function uuid4() {
 }
 // End of section of code adapted from https://github.com/broofa/node-uuid4 under MIT License
 
-function withValidClientToken(errorHandler, token, clientID, clientSecret, authEndPoint, callback) {
+function withValidClientToken(errorHandler, token, clientID, clientSecret, authURL, callback) {
   var claims = getClaims(token)
-  if (claims != null && claims.exp > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
+  if (claims != null && claims.exp < Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
     callback()
   else {
     var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
     var body = `grant_type=client_credentials&client_id=${clientID}&client_secret=${clientSecret}`
-    sendExternalRequestThen(errorHandler, 'POST', authEndPoint, headers, body, function(clientRes) {
+    sendExternalRequestThen(errorHandler, 'POST', authURL, headers, body, function(clientRes) {
       getClientResponseBody(clientRes, function(resp_body) {
         if (clientRes.statusCode == 200) {
           token = JSON.parse(resp_body).access_token
+          log('withValidClientToken', `retrieved token for: ${clientID}`)
           callback(token)
         } else {
-          log('withValidClientToken', `'unable to retrieve token', authEndPoint: ${authEndPoint}, headers: ${JSON.stringify(headers)}`)
+          log('withValidClientToken', `unable to retrieve token. authURL: ${authURL}, headers: ${JSON.stringify(headers)}`)
           badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
         }
       })
