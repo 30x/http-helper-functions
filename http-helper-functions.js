@@ -18,7 +18,7 @@ const MIN_TOKEN_VALIDITY_PERIOD = process.env.MIN_TOKEN_VALIDITY_PERIOD || 5000
 const fs = require('fs')
 
 function log(funcionName, text) {
-  console.log(Date.now(), process.env.COMPONENT_NAME, funcionName, text)
+  console.log(new Date().toISOString(), process.env.COMPONENT_NAME, funcionName, text)
 }
 
 function keepAliveAgent(protocol) {
