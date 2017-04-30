@@ -170,6 +170,17 @@ function patchInternalResourceThen(res, pathRelativeURL, headers, patch, callbac
   })
 }
 
+function postToInternalResourceThen(res, pathRelativeURL, headers, body, callback) {
+  sendInternalRequestThen(res, 'POST', pathRelativeURL, headers, patch, function(clientRes) {
+    getClientResponseObject(res, clientRes, headers.host, body => {
+      if (Math.floor(clientRes.statusCode / 100) == 2)
+        callback(body)
+      else
+        internalError(res, {msg: 'unable to post to internal resource', url: pathRelativeURL, statusCode: clientRes.statusCode, body: body})
+    })
+  })
+}
+
 function flowThroughHeaders(req) {
   var headers = {}
   var reqHeaders = req.headers
@@ -643,5 +654,6 @@ exports.sendExternalRequestThen = sendExternalRequestThen
 exports.flowThroughHeaders = flowThroughHeaders
 exports.withInternalResourceDo = withInternalResourceDo
 exports.patchInternalResourceThen = patchInternalResourceThen
+exports.postToInternalResourceThen = postToInternalResourceThen
 exports.getClientResponseObject = getClientResponseObject
 exports.withValidClientToken = withValidClientToken
