@@ -1,7 +1,7 @@
 'use strict'
 const http = require('http')
 const https = require('https')
-const jsonpatch= require('jsonpatch')
+const jsonpatch= require('./jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const url = require('url')
 const util = require('util')
