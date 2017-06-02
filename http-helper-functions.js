@@ -15,7 +15,7 @@ const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 const MIN_TOKEN_VALIDITY_PERIOD = process.env.MIN_TOKEN_VALIDITY_PERIOD || 5000
 const CHECK_PERMISSIONS = process.env.CHECK_PERMISSIONS == 'false' ? false : true
-
+const CHECK_IDENTITY = CHECK_PERMISSIONS || (process.env.CHECK_IDENTITY == 'true' ? true : false)
 const fs = require('fs')
 
 function log(funcionName, text) {
@@ -598,9 +598,9 @@ function uuid4() {
 // End of section of code adapted from https://github.com/broofa/node-uuid4 under MIT License
 
 function withValidClientToken(errorHandler, token, clientID, clientSecret, authURL, callback) {
-  if (CHECK_PERMISSIONS) {
+  if (CHECK_PERMISSIONS || CHECK_IDENTITY) {
     var claims = getClaims(token)
-    if (claims != null && claims.exp < Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
+    if (claims != null && claims.exp > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
       callback()
     else {
       var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
