@@ -119,6 +119,13 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   var clientReq = (INTERNAL_SCHEME == 'https' ? https : http).request(options, function(clientRes) {
     callback(null, clientRes)
   })
+  var startTime = Date.now()
+  clientReq.setTimeout(300000, () => {
+    var msg = `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
+    log('http-helper-functions:sendInternalRequest', `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`)
+    clientReq.abort()
+    callback(msg)
+  })
   clientReq.on('error', function (err) {
     var the_options = Object.assign({}, options)
     delete the_options.agent
@@ -213,6 +220,12 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
     options.port = urlParts.port
   var clientReq = (urlParts.protocol == 'https:' ? https : http).request(options, function(clientRes) {
     callback(null, clientRes)
+  })
+  clientReq.setTimeout(300000, () => {
+    var msg = `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
+    log('http-helper-functions:sendExternalRequest', `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`)
+    clientReq.abort()
+    callback(msg)
   })
   clientReq.on('error', function (err) {
     log('http-helper-functions:sendExternalRequest', `url: ${targetUrl} ${err}`)
@@ -600,7 +613,7 @@ function uuid4() {
 function withValidClientToken(errorHandler, token, clientID, clientSecret, authURL, callback) {
   if (CHECK_PERMISSIONS || CHECK_IDENTITY) {
     var claims = getClaims(token)
-    if (claims != null && claims.exp > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
+    if (claims != null && (claims.exp * 1000) > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
       callback()
     else {
       var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
