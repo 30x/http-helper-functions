@@ -1,5 +1,5 @@
 {
-  "name": "http-helper-functions",
+  "name": "@apigee/http-helper-functions",
   "version": "0.0.109",
   "description": "Some helper functions for working with the Node http module",
   "main": "http-helper-functions.js",
