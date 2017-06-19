@@ -312,12 +312,12 @@ function getClientResponseObject(errorHandler, res, host, callback) {
         }
         catch (err) {
           log('http-helper-functions:getClientResponseObject', body)
-          internalError(errorHandler, {msg: 'invalid JSON in response', err: err} )
+          internalError(errorHandler, {msg: 'invalid JSON in response', err: err, body: body} )
         }
         if (jso)
           callback(internalizeURLs(jso, host, contentType))
       } else
-        internalError(errorHandler, {msg: 'response not JSON: ' % contentType})
+        internalError(errorHandler, {msg: 'response not JSON: ' % contentType, body: body})
   })
 }
 
