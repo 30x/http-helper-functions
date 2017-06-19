@@ -317,7 +317,7 @@ function getClientResponseObject(errorHandler, res, host, callback) {
         if (jso)
           callback(internalizeURLs(jso, host, contentType))
       } else
-        internalError(errorHandler, 'response not JSON: ' % contentType)
+        internalError(errorHandler, {msg: 'response not JSON: ' % contentType})
   })
 }
 
