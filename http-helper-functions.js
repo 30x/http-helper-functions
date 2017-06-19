@@ -142,12 +142,15 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
     [callback, headers] = [headers, {}]
   else if (headers == null)
     headers = {}
-  sendInternalRequest(method, pathRelativeURL, headers, body, function(err, clientRes) {
-    if (err) {
-      err.host = headers.host 
-      err.path = pathRelativeURL
-      err.internalRouterHost = process.env.INTERNAL_SY_ROUTER_HOST
-      err.internalRouterPort = INTERNAL_SY_ROUTER_PORT
+  sendInternalRequest(method, pathRelativeURL, headers, body, function(errStr, clientRes) {
+    if (errStr) {
+      var err = {
+        err: errStr,
+        host: headers.host,
+        path: pathRelativeURL,
+        internalRouterHost: process.env.INTERNAL_SY_ROUTER_HOST,
+        internalRouterPort: INTERNAL_SY_ROUTER_PORT
+      }
       log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${JSON.stringify(headers)}`)
       internalError(res, err)
     } else 
@@ -221,6 +224,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   var clientReq = (urlParts.protocol == 'https:' ? https : http).request(options, function(clientRes) {
     callback(null, clientRes)
   })
+  var startTime = Date.now()
   clientReq.setTimeout(300000, () => {
     var msg = `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
     log('http-helper-functions:sendExternalRequest', `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`)

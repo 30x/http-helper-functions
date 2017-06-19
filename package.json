@@ -1,6 +1,6 @@
 {
   "name": "@apigee/http-helper-functions",
-  "version": "0.0.109",
+  "version": "0.0.110",
   "description": "Some helper functions for working with the Node http module",
   "main": "http-helper-functions.js",
   "scripts": {
@@ -16,6 +16,5 @@
     "url": "https://github.com/30x/http-helper-functions/issues"
   },
   "homepage": "https://github.com/30x/http-helper-functions#readme",
-  "dependencies": {
-  }
+  "dependencies": {}
 }
