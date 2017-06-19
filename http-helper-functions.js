@@ -152,7 +152,7 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
         internalRouterPort: INTERNAL_SY_ROUTER_PORT
       }
       log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${JSON.stringify(headers)}`)
-      internalError(res, err)
+      internalError(res, {msg: 'unable to send internal request', err: err, method: method, host: headers.host, path: pathRelativeURL, headers: headers})
     } else 
       callback(clientRes)
   })
@@ -312,7 +312,7 @@ function getClientResponseObject(errorHandler, res, host, callback) {
         }
         catch (err) {
           log('http-helper-functions:getClientResponseObject', body)
-          internalError(errorHandler, `invalid JSON: ${err.message} body: ${body}` )
+          internalError(errorHandler, {msg: 'invalid JSON in response', err: err} )
         }
         if (jso)
           callback(internalizeURLs(jso, host, contentType))
