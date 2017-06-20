@@ -361,6 +361,10 @@ function getUser(auth) {
   return getUserFromToken(getToken(auth))
 }
 
+function getScopes(auth) {
+  return getClaims(getToken(auth)).scope
+}
+
 function methodNotAllowed(req, res, allow) {
   var body = 'Method not allowed. request-target: ' + req.url + ' method: ' + req.method + '\n'
   body = JSON.stringify(body)
@@ -655,6 +659,7 @@ exports.internalizeURLs = internalizeURLs
 exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
 exports.getClaims = getClaims
+exports.getScopes = getScopes
 exports.forbidden = forbidden
 exports.unauthorized = unauthorized
 exports.applyPatch = applyPatch
