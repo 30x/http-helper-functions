@@ -272,7 +272,7 @@ function getServerPostObject(req, res, callback) {
         jso = JSON.parse(body)
       }
       catch (err) {
-        log('http-helper-functions:getServerPostObject', body)
+        log('http-helper-functions:getServerPostObject', `invalid JSON: ${err.message} body: ${body}`)
         badRequest(res, `invalid JSON: ${err.message} body: ${body}` )
       }
       if (jso) 
@@ -364,54 +364,54 @@ function getUser(auth) {
 function methodNotAllowed(req, res, allow) {
   var body = 'Method not allowed. request-target: ' + req.url + ' method: ' + req.method + '\n'
   body = JSON.stringify(body)
-  res.writeHead(405, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body),
-                      'Allow': allow.join(', ') })
+  res.writeHead(405, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body),
+                      'allow': allow.join(', ') })
   res.end(body)
 }
 
 function notFound(req, res, body) {
   body = body || `Not Found. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
   body = JSON.stringify(body)
-  res.writeHead(404, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body)})
+  res.writeHead(404, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function forbidden(req, res, body) {
   body = body || `Forbidden. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
   body = JSON.stringify(body)
-  res.writeHead(403, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body)})
+  res.writeHead(403, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function unauthorized(req, res, body) {
   body = body || 'Unauthorized. request-target: ' + req.url
   body = JSON.stringify(body)
-  res.writeHead(401, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body)})
+  res.writeHead(401, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function badRequest(res, err) {
   var body = JSON.stringify(err)
-  res.writeHead(400, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body)})
+  res.writeHead(400, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body)})
   res.end(body)
 }   
 
 function internalError(res, err) {
   var body = JSON.stringify(err)
-  res.writeHead(500, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body)})
+  res.writeHead(500, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body)})
   res.end(body)
 }   
 
 function duplicate(res, err) {
   var body = JSON.stringify(err)
-  res.writeHead(409, {'Content-Type': 'application/json',
-                      'Content-Length': Buffer.byteLength(body)})
+  res.writeHead(409, {'content-type': 'application/json',
+                      'content-length': Buffer.byteLength(body)})
   res.end(body)
 }   
 
@@ -442,12 +442,13 @@ function respond(req, res, status, headers, body, contentType) {
     // subject to content negotiation of the response format.
     // ToDo: make the code match this comment or change the comment
     var wantsHTML = req.headers.accept !== undefined && req.headers.accept.startsWith('text/html')
-    if (!('Content-Type' in headers))
-      headers['Content-Type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
+    if (!('content-type' in headers))
+      headers['content-type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
     externalizeURLs(body, req.headers.host)
-    var contentType = headers['Content-Type']
-    body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : contentType == 'application/json' ? JSON.stringify(body) : body.toString()
-    headers['Content-Length'] = Buffer.byteLength(body)
+    var contentType = headers['content-type']
+    var isJson = contentType.startsWith('application/') && contentType.endsWith('json')
+    body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : isJson ? JSON.stringify(body) : body.toString()
+    headers['content-length'] = Buffer.byteLength(body)
     res.writeHead(status, headers)
     res.end(body)
   } else { 
