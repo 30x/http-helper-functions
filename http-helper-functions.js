@@ -226,8 +226,8 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   })
   var startTime = Date.now()
   clientReq.setTimeout(300000, () => {
-    var msg = `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
-    log('http-helper-functions:sendExternalRequest', `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`)
+    var msg = `socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`
+    log('http-helper-functions:sendExternalRequest', `socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`)
     clientReq.abort()
     callback(msg)
   })
