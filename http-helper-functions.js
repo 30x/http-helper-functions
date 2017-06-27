@@ -89,7 +89,7 @@ function fixUpHeadersAndBody(headers, body) {
       if (contentType.startsWith('application') && contentType.endsWith('json'))
         body = JSON.stringify(body)
     headers['content-length'] = Buffer.byteLength(body)
-  }  
+  }
   return body
 }
 
@@ -132,7 +132,7 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
     log('http-helper-functions:sendInternalRequest', `error ${err} options: options: ${JSON.stringify(the_options)}`)
     callback(err)
   })
-  if (body) 
+  if (body)
     clientReq.write(body)
   clientReq.end()
 }
@@ -153,7 +153,7 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
       }
       log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${JSON.stringify(headers)}`)
       internalError(res, {msg: 'unable to send internal request', err: err, method: method, host: headers.host, path: pathRelativeURL, headers: headers})
-    } else 
+    } else
       callback(clientRes)
   })
 }
@@ -237,7 +237,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   })
   if (body)
     clientReq.write(body)
-  clientReq.end()    
+  clientReq.end()
 }
 
 function sendExternalRequestThen(res, method, targetUrl, headers, body, callback) {
@@ -247,14 +247,14 @@ function sendExternalRequestThen(res, method, targetUrl, headers, body, callback
     headers = {}
   sendExternalRequest(method, targetUrl, headers, body, function(err, clientRes) {
     if (err) {
-      err.headers = headers 
+      err.headers = headers
       err.targetUrl = targetUrl
       err.method = method
       log('http-helper-functions:sendExternalRequestThen', `error ${err}`)
       internalError(res, {msg: `unable to send external request. method: ${method} url: ${targetUrl}`, headers: headers, err: err})
-    } else 
+    } else
       callback(clientRes)
-  })  
+  })
 }
 
 function getServerPostObject(req, res, callback) {
@@ -275,7 +275,7 @@ function getServerPostObject(req, res, callback) {
         log('http-helper-functions:getServerPostObject', `invalid JSON: ${err.message} body: ${body}`)
         badRequest(res, `invalid JSON: ${err.message} body: ${body}` )
       }
-      if (jso) 
+      if (jso)
         callback(internalizeURLs(jso, req.headers.host, contentType))
     } else
       badRequest(res, 'input must be JSON')
@@ -303,7 +303,7 @@ function getClientResponseObject(errorHandler, res, host, callback) {
   getClientResponseBody(res, function(body) {
     var contentType = res.headers['content-type']
     if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json')))
-      if (body == '') 
+      if (body == '')
         callback()
       else {
         var jso
@@ -403,29 +403,29 @@ function badRequest(res, err) {
   res.writeHead(400, {'content-type': 'application/json',
                       'content-length': Buffer.byteLength(body)})
   res.end(body)
-}   
+}
 
 function internalError(res, err) {
   var body = JSON.stringify(err)
   res.writeHead(500, {'content-type': 'application/json',
                       'content-length': Buffer.byteLength(body)})
   res.end(body)
-}   
+}
 
 function duplicate(res, err) {
   var body = JSON.stringify(err)
   res.writeHead(409, {'content-type': 'application/json',
                       'content-length': Buffer.byteLength(body)})
   res.end(body)
-}   
+}
 
 function found(req, res, body, etag, contentLocation, contentType) {
   var headers = {}
   if (contentLocation !== undefined)
-    headers['Content-Location'] = externalizeURLs(contentLocation, req.headers.host) 
+    headers['Content-Location'] = externalizeURLs(contentLocation, req.headers.host)
   else
     headers['Content-Location'] = req.url //todo - handle case where req.url includes http://authority
-  if (etag !== undefined) 
+  if (etag !== undefined)
     headers['Etag'] = etag
   respond(req, res, 200, headers, body, contentType)
 }
@@ -435,7 +435,7 @@ function created(req, res, body, location, etag, contentType) {
   if (location !== undefined)
     headers['Location'] = externalizeURLs(location, req.headers.host)
   if (etag !== undefined)
-    headers['Etag'] = etag 
+    headers['Etag'] = etag
   respond(req, res, 201, headers, body, contentType)
 }
 
@@ -455,7 +455,7 @@ function respond(req, res, status, headers, body, contentType) {
     headers['content-length'] = Buffer.byteLength(body)
     res.writeHead(status, headers)
     res.end(body)
-  } else { 
+  } else {
     res.writeHead(status, headers)
     res.end()
   }
@@ -464,15 +464,15 @@ function respond(req, res, status, headers, body, contentType) {
 function internalizeURL(anURL, authority) {
   var decodedURL = decodeURIComponent(anURL)
   var httpString = 'http://' + authority
-  var httpsString = 'https://' + authority  
-  var schemelessString = '//' + authority  
-  if (decodedURL.startsWith(httpString)) 
+  var httpsString = 'https://' + authority
+  var schemelessString = '//' + authority
+  if (decodedURL.startsWith(httpString))
     return INTERNALURLPREFIX + decodedURL.substring(httpString.length)
-  else if (decodedURL.startsWith(httpsString)) 
+  else if (decodedURL.startsWith(httpsString))
     return INTERNALURLPREFIX + decodedURL.substring(httpsString.length)
-  else if (decodedURL.startsWith(schemelessString)) 
+  else if (decodedURL.startsWith(schemelessString))
     return INTERNALURLPREFIX + decodedURL.substring(schemelessString.length)
-  else if (decodedURL.startsWith('/') || decodedURL.startsWith('http')) 
+  else if (decodedURL.startsWith('/') || decodedURL.startsWith('http'))
     return INTERNALURLPREFIX + decodedURL
   else
     return decodedURL
@@ -491,7 +491,7 @@ function internalizeURLs(jsObject, authority, contentType) {
           jsObject['value'] = internalizeURLs(jsObject['value'], authority)
       } else
         for (var key in jsObject) {
-          if (jsObject.hasOwnProperty(key)) 
+          if (jsObject.hasOwnProperty(key))
             jsObject[key] = internalizeURLs(jsObject[key], authority)
         }
     else if (typeof jsObject == 'string' && (jsObject.startsWith('http') || jsObject.startsWith('/') || jsObject.startsWith('%2F')) && jsObject.match(re))
@@ -504,9 +504,9 @@ function externalizeURLs(jsObject, authority) {
   if (Array.isArray(jsObject))
     for (var i = 0; i < jsObject.length; i++)
       jsObject[i] = externalizeURLs(jsObject[i], authority)
-  else if (typeof jsObject == 'object') 
+  else if (typeof jsObject == 'object')
     for(var key in jsObject) {
-      if (jsObject.hasOwnProperty(key)) 
+      if (jsObject.hasOwnProperty(key))
         jsObject[key] = externalizeURLs(jsObject[key], authority)
     }
   else if (typeof jsObject == 'string')
@@ -515,7 +515,7 @@ function externalizeURLs(jsObject, authority) {
       return prefix + jsObject.substring(INTERNALURLPREFIX.length)
     }
   return jsObject
-}  
+}
 
 function mergePatch(target, patch) {
   if (typeof patch == 'object' && !Array.isArray(patch)) {
@@ -538,7 +538,7 @@ function mergePatch(target, patch) {
 }
 
 function applyPatch(reqHeaders, res, target, patch, callback) {
-  if ('content-type' in reqHeaders) 
+  if ('content-type' in reqHeaders)
     if (reqHeaders['content-type'] == 'application/merge-patch+json')
       callback(mergePatch(target, patch), reqHeaders['content-type'])
     else if (reqHeaders['content-type'] == 'application/json-patch+json') {
@@ -551,8 +551,8 @@ function applyPatch(reqHeaders, res, target, patch, callback) {
       callback(patchedDoc, reqHeaders['content-type'])
     }
     else
-      badRequest(res, `unknown PATCH content-type: ${reqHeaders['content-type']}`)  
-  else 
+      badRequest(res, `unknown PATCH content-type: ${reqHeaders['content-type']}`)
+  else
     badRequest(res, 'PATCH headers missing content-type for patch')
 }
 
@@ -576,7 +576,7 @@ function toHTML(body) {
   const increment = 25
   function valueToHTML(value, indent, name) {
     if (typeof value == 'string')
-      if (value.startsWith('http') || value.startsWith('./') || value.startsWith('/')) 
+      if (value.startsWith('http') || value.startsWith('./') || value.startsWith('/'))
         return `<a href="${value}"${name === undefined ? '': ` property="${name}"`}>${value}</a>`
       else
         return `<span${name === undefined ? '': ` property="${name}"`} datatype="string">${value}</span>`
@@ -596,12 +596,12 @@ function toHTML(body) {
     return `<p>${name}: ${valueToHTML(value, indent, name)}</p>`
   }
   return `<!DOCTYPE html><html><head></head><body>${valueToHTML(body, -increment)}</body></html>`
-} 
+}
 
 // The following function adapted from https://github.com/broofa/node-uuid4 under MIT License
 // Copyright (c) 2010-2012 Robert Kieffer
 var toHex = Array(256)
-for (var val = 0; val < 256; val++) 
+for (var val = 0; val < 256; val++)
   toHex[val] = (val + 0x100).toString(16).substr(1)
 function uuid4() {
   var buf = randomBytes(16)
@@ -644,6 +644,17 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, authU
     callback()
 }
 
+function getEmailFromToken(token) {
+  var claims = getClaims(token)
+  return claims == null ? null : ((typeof `${claims.email}`) == 'undefined' ? '' : claims.email)
+}
+
+function getEmail(auth) {
+  return getEmailFromToken(getToken(auth))
+}
+
+exports.getEmailFromToken = getEmailFromToken
+exports.getEmail = getEmail
 exports.getServerPostObject = getServerPostObject
 exports.getServerPostBuffer = getServerPostBuffer
 exports.getClientResponseBody = getClientResponseBody
