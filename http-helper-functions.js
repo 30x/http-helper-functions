@@ -362,7 +362,8 @@ function getUser(auth) {
 }
 
 function getScopes(auth) {
-  return getClaims(getToken(auth)).scope
+  let claims = getClaims(getToken(auth));
+  return claims !== null && claims !== undefined && claims.scope ? claims.scope : []
 }
 
 function methodNotAllowed(req, res, allow) {
