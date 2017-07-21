@@ -90,9 +90,20 @@ function fixUpHeadersAndBody(headers, body) {
         body = JSON.stringify(body)
     headers['content-length'] = Buffer.byteLength(body)
   } else
+    // if we are not going to send a body, it is important that we also don't have a content-length header otherwise http will hang.
+    // make sure there isn't a stray one hanging around
     delete headers['content-length']
-
   return body
+}
+
+const letters16 = 'abcdefghijklmnopqrst'
+function generateIdentifier() {
+  var buf = randomBytes(8), rslt = ''
+  for (var i = 0; i < 8; i++) {
+    rslt += letters16[buf[i] >>> 4]
+    rslt += letters16[buf[i] & 0xf]
+  }
+  return rslt
 }
 
 function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
@@ -104,7 +115,8 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
     callback = headers
     headers = {}
   }
-  log('http-helper-functions:sendInternalRequest', `method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
+  var id = generateIdentifier()
+  log('http-helper-functions:sendInternalRequest', `id: ${id} method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
   body = fixUpHeadersAndBody(headers, body)
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
@@ -119,19 +131,20 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   if (INTERNAL_SY_ROUTER_PORT)
     options.port = INTERNAL_SY_ROUTER_PORT
   var clientReq = (INTERNAL_SCHEME == 'https' ? https : http).request(options, function(clientRes) {
+    log('http-helper-functions:sendInternalRequest', `id: ${id} received response after ${Date.now() - startTime} millisecs. method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
     callback(null, clientRes)
   })
   var startTime = Date.now()
   clientReq.setTimeout(300000, () => {
     var msg = `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
-    log('http-helper-functions:sendInternalRequest', `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`)
+    log('http-helper-functions:sendInternalRequest', `id: ${id} socket timeout after ${Date.now() - startTime} millisecs. pathRelativeURL: ${pathRelativeURL}`)
     clientReq.abort()
     callback(msg)
   })
   clientReq.on('error', function (err) {
     var the_options = Object.assign({}, options)
     delete the_options.agent
-    log('http-helper-functions:sendInternalRequest', `error ${err} options: options: ${JSON.stringify(the_options)}`)
+    log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${JSON.stringify(the_options)}`)
     callback(err)
   })
   if (body)
@@ -210,7 +223,8 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
     callback = headers
     headers = {}
   }
-  log('http-helper-functions:sendExternalRequest', `method: ${method} url: ${targetUrl}`)
+  var id = generateIdentifier()
+  log('http-helper-functions:sendExternalRequest', `id: ${id} method: ${method} url: ${targetUrl}`)
   body = fixUpHeadersAndBody(headers, body)
   var urlParts = url.parse(targetUrl)
   var options = {
@@ -224,17 +238,18 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   if (urlParts.port)
     options.port = urlParts.port
   var clientReq = (urlParts.protocol == 'https:' ? https : http).request(options, function(clientRes) {
+    log('http-helper-functions:sendExternalRequest', `id: ${id} received response after ${Date.now() - startTime} millisecs. method: ${method} url: ${targetUrl}`)
     callback(null, clientRes)
   })
   var startTime = Date.now()
   clientReq.setTimeout(300000, () => {
     var msg = `socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`
-    log('http-helper-functions:sendExternalRequest', `socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`)
+    log('http-helper-functions:sendExternalRequest', `id: ${id} socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`)
     clientReq.abort()
     callback(msg)
   })
   clientReq.on('error', function (err) {
-    log('http-helper-functions:sendExternalRequest', `url: ${targetUrl} ${err}`)
+    log('http-helper-functions:sendExternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${JSON.stringify(the_options)}`)
     callback(err)
   })
   if (body)
