@@ -89,7 +89,9 @@ function fixUpHeadersAndBody(headers, body) {
       if (contentType.startsWith('application') && contentType.endsWith('json'))
         body = JSON.stringify(body)
     headers['content-length'] = Buffer.byteLength(body)
-  }
+  } else
+    delete headers['content-length']
+
   return body
 }
 
