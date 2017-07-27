@@ -144,7 +144,7 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   clientReq.on('error', function (err) {
     var the_options = Object.assign({}, options)
     delete the_options.agent
-    log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${JSON.stringify(the_options)}`)
+    log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${util.inspect(the_options)}`)
     callback(err)
   })
   if (body)
@@ -166,7 +166,7 @@ function sendInternalRequestThen(res, method, pathRelativeURL, headers, body, ca
         internalRouterHost: process.env.INTERNAL_SY_ROUTER_HOST,
         internalRouterPort: INTERNAL_SY_ROUTER_PORT
       }
-      log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${JSON.stringify(headers)}`)
+      log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${util.inspect(headers)}`)
       internalError(res, {msg: 'unable to send internal request', err: err, method: method, host: headers.host, path: pathRelativeURL, headers: headers})
     } else
       callback(clientRes)
@@ -249,7 +249,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
     callback(msg)
   })
   clientReq.on('error', function (err) {
-    log('http-helper-functions:sendExternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${JSON.stringify(the_options)}`)
+    log('http-helper-functions:sendExternalRequest', `id: ${id} error ${util.inspect(err)} targetUrl: ${targetUrl} options: options: ${util.inspect(options)}`)
     callback(err)
   })
   if (body)
@@ -471,9 +471,11 @@ function respond(req, res, status, headers, body, contentType) {
     var isJson = contentType.startsWith('application/') && contentType.endsWith('json')
     body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : isJson ? JSON.stringify(body) : body.toString()
     headers['content-length'] = Buffer.byteLength(body)
+    console.trace()
     res.writeHead(status, headers)
     res.end(body)
   } else {
+    console.trace()
     res.writeHead(status, headers)
     res.end()
   }
@@ -564,7 +566,7 @@ function applyPatch(reqHeaders, res, target, patch, callback) {
         var patchedDoc = jsonpatch.apply_patch(target, patch)
       }
       catch(err) {
-        return badRequest(res, `err: ${err} patch: ${JSON.stringify(patch)}`)
+        return badRequest(res, `err: ${err} patch: ${util.inspect(patch)}`)
       }
       callback(patchedDoc, reqHeaders['content-type'])
     }
@@ -652,7 +654,7 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, authU
             log('withValidClientToken', `retrieved token for: ${clientID}`)
             callback(token)
           } else {
-            log('withValidClientToken', `unable to retrieve token. authURL: ${authURL}, headers: ${JSON.stringify(headers)}`)
+            log('withValidClientToken', `unable to retrieve token. authURL: ${authURL}, headers: ${util.inspect(headers)}`)
             badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
           }
         })
