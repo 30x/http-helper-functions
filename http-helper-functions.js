@@ -215,6 +215,9 @@ function flowThroughHeaders(req) {
   var host = reqHeaders.host
   if (host)
     headers.host = host
+  var requestID = req.headers['x-request-id']
+  if (requestID)
+    headers['x-request-id'] = requestID
   return headers
 }
 
@@ -471,11 +474,9 @@ function respond(req, res, status, headers, body, contentType) {
     var isJson = contentType.startsWith('application/') && contentType.endsWith('json')
     body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : isJson ? JSON.stringify(body) : body.toString()
     headers['content-length'] = Buffer.byteLength(body)
-    console.trace()
     res.writeHead(status, headers)
     res.end(body)
   } else {
-    console.trace()
     res.writeHead(status, headers)
     res.end()
   }
@@ -673,6 +674,16 @@ function getEmail(auth) {
   return getEmailFromToken(getToken(auth))
 }
 
+function getContext(req) {
+  var context = req.context
+  if (!context)
+    req.context = context = {
+      user: getUser(req.headers.authorization),
+      'request-id': req.headers['x-request-id']
+    }
+  return context
+}
+
 exports.getEmailFromToken = getEmailFromToken
 exports.getEmail = getEmail
 exports.getServerPostObject = getServerPostObject
@@ -711,3 +722,4 @@ exports.patchInternalResourceThen = patchInternalResourceThen
 exports.postToInternalResourceThen = postToInternalResourceThen
 exports.getClientResponseObject = getClientResponseObject
 exports.withValidClientToken = withValidClientToken
+exports.getContext = getContext
