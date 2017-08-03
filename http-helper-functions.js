@@ -15,11 +15,12 @@ const INTERNAL_SY_ROUTER_PORT = process.env.INTERNAL_SY_ROUTER_PORT
 const SHIPYARD_PRIVATE_SECRET = process.env.SHIPYARD_PRIVATE_SECRET !== undefined ? new Buffer(process.env.SHIPYARD_PRIVATE_SECRET).toString('base64') : undefined
 const MIN_TOKEN_VALIDITY_PERIOD = process.env.MIN_TOKEN_VALIDITY_PERIOD || 5000
 const CHECK_PERMISSIONS = process.env.CHECK_PERMISSIONS == 'false' ? false : true
-const CHECK_IDENTITY = CHECK_PERMISSIONS || (process.env.CHECK_IDENTITY == 'true' ? true : false)
+const CHECK_IDENTITY = CHECK_PERMISSIONS || (process.env.CHECK_IDENTITY == 'true')
+const RUNNING_BEHIND_APIGEE_EDGE = process.env.RUNNING_BEHIND_APIGEE_EDGE == 'true'
 const fs = require('fs')
 
-function log(funcionName, text) {
-  console.log(new Date().toISOString(), process.env.COMPONENT_NAME, funcionName, text)
+function log(functionName, text) {
+  console.log(new Date().toISOString(), process.env.COMPONENT_NAME, functionName, text)
 }
 
 function keepAliveAgent(protocol) {
@@ -482,8 +483,78 @@ function respond(req, res, status, headers, body, contentType) {
   }
 }
 
+const subdelims = [33, 36, 38, 39, 40, 41, // "!" / "$" / "&" / "'" / "(" / ")"
+                   42, 43, 44, 59, 61 ]  // / "*" / "+" / "," / ";" / "="
+function isValidPathCharacter (code) {
+  if (code >= 48 && code <= 57) // decimal
+    return true
+  if (code >= 65 && code <= 90) // uppercase letter
+    return true
+  if (code >= 97 && code <= 122) // lowercase letter
+    return true
+  if (code == 45 || code == 46 || code == 95 || code == 126) // -._~
+    return true
+  if (subdelims.indexOf(code) > -1)
+    return true
+  if (code == 58 || code == 64) // :@
+    return true
+  return false
+}
+
+const urlChars = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+function pathCharacter (code) {
+  return urlChars.charAt(code - 32)
+}
+
+function getEncodingLength(code) {
+  if (code == 226) // %E2
+    return 9
+  else if (code == 198 || code == 197 || code == 203 || code == 194 || code == 195) // %C6, %C5, %CB, %C2, %C3
+    return 6
+  else
+    return 3
+}
+
+function normalizeURLPart(path) {
+  // This method takes out any extraneous percent encoding, leaving only the ones that are necessary
+  if (path) {
+    var rslt
+    for (let i=0; i<path.length; i++) {
+      let char = path.charAt(i)
+      if (char == '%') {
+        let code = parseInt(path.slice(i+1, i+3), 16)
+        if (isValidPathCharacter(code)) { // it should not be encoded — decode it
+          if (!rslt)
+            rslt = path.slice(0, i)
+          rslt += pathCharacter(code)
+          i += getEncodingLength(path, code, i) - 1
+        } else {
+          let encodingLength = getEncodingLength(path, code, i)
+          if (rslt)
+            rslt += path.slice(i, i + encodingLength)
+          i += encodingLength - 1
+        }
+      } else
+        if (rslt)
+          rslt += char
+    }
+    return rslt || path
+  } else
+    return path
+}
+
+function normalizeURL(theURIReference) {
+  let parsedURL = url.parse(theURIReference)
+  if (parsedURL.query && RUNNING_BEHIND_APIGEE_EDGE) {
+    let sq = decodeURIComponent(parsedURL.query)
+    parsedURL.search = '?' + sq
+    return parsedURL.format()
+  } else
+    return theURIReference
+}
+
 function internalizeURL(anURL, authority) {
-  var decodedURL = decodeURIComponent(anURL)
+  var decodedURL = normalizeURL(anURL)
   var httpString = 'http://' + authority
   var httpsString = 'https://' + authority
   var schemelessString = '//' + authority
@@ -500,6 +571,10 @@ function internalizeURL(anURL, authority) {
 }
 
 var re = /^[^\s"'<>]+$/
+function looksLikeAnURL(jsObject) {
+  return typeof jsObject == 'string' && (jsObject.startsWith('http') || jsObject.startsWith('/') || jsObject.startsWith('%2F')) && jsObject.match(re)
+}
+
 function internalizeURLs(jsObject, authority, contentType) {
   //strip the http://authority or https://authority from the front of any urls
   if (authority)
@@ -515,7 +590,7 @@ function internalizeURLs(jsObject, authority, contentType) {
           if (jsObject.hasOwnProperty(key))
             jsObject[key] = internalizeURLs(jsObject[key], authority)
         }
-    else if (typeof jsObject == 'string' && (jsObject.startsWith('http') || jsObject.startsWith('/') || jsObject.startsWith('%2F')) && jsObject.match(re))
+    else if (looksLikeAnURL(jsObject))
       return internalizeURL(jsObject, authority)
   return jsObject
 }
@@ -723,3 +798,5 @@ exports.postToInternalResourceThen = postToInternalResourceThen
 exports.getClientResponseObject = getClientResponseObject
 exports.withValidClientToken = withValidClientToken
 exports.getContext = getContext
+exports.normalizeURLPart = normalizeURLPart
+exports.normalizeURL = normalizeURL
