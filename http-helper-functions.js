@@ -145,6 +145,7 @@ function sendInternalRequest(method, pathRelativeURL, headers, body, callback) {
   clientReq.on('error', function (err) {
     var the_options = Object.assign({}, options)
     delete the_options.agent
+    let targetUrl = `${options.hostname}${options.port ? `:${options.port}` : ''}${options.path}`
     log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${util.inspect(the_options)}`)
     callback(err)
   })
