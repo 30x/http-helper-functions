@@ -179,7 +179,7 @@ function withInternalResourceDo(res, pathRelativeURL, headers, callback) {
   sendInternalRequestThen(res, 'GET', pathRelativeURL, headers, null, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, body => {
       if (clientRes.statusCode == 200)
-        callback(body)
+        callback(body, clientRes)
       else
         internalError(res, {msg: 'unable to retrieve internal resource', url: pathRelativeURL, statusCode: clientRes.statusCode, body: body})
     })
@@ -190,7 +190,7 @@ function patchInternalResourceThen(res, pathRelativeURL, headers, patch, callbac
   sendInternalRequestThen(res, 'PATCH', pathRelativeURL, headers, patch, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, body => {
       if (clientRes.statusCode == 200)
-        callback(body)
+        callback(body, clientRes)
       else
         internalError(res, {msg: 'unable to patch internal resource', url: pathRelativeURL, statusCode: clientRes.statusCode, body: body})
     })
@@ -201,7 +201,7 @@ function postToInternalResourceThen(res, pathRelativeURL, headers, requestBody, 
   sendInternalRequestThen(res, 'POST', pathRelativeURL, headers, requestBody, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, responseBody => {
       if (Math.floor(clientRes.statusCode / 100) == 2)
-        callback(responseBody)
+        callback(responseBody, clientRes)
       else
         internalError(res, {msg: 'unable to post to internal resource', url: pathRelativeURL, statusCode: clientRes.statusCode, responseBody: responseBody})
     })
