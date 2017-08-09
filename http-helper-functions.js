@@ -351,7 +351,7 @@ function getClientResponseBuffer(res, callback) {
   res.on('end', () => callback(Buffer.concat(body)))
 }
 
-function getClaims(token) {
+function getClaimsFromToken(token) {
   if (typeof token == 'string') {
     var claims64 = token.split('.')
     if (claims64.length != 3) {
@@ -366,7 +366,7 @@ function getClaims(token) {
 }
 
 function getUserFromToken(token) {
-  var claims = getClaims(token)
+  var claims = getClaimsFromToken(token)
   return claims == null ? null : `${claims.iss}#${claims.sub}`
 }
 
@@ -386,7 +386,7 @@ function getUser(auth) {
 }
 
 function getScopes(auth) {
-  let claims = getClaims(getToken(auth));
+  let claims = getClaimsFromToken(getToken(auth));
   return claims !== null && claims !== undefined && claims.scope ? claims.scope : []
 }
 
@@ -735,7 +735,7 @@ function errorHandler(func) {
 // Given a clientId and secret and the URL of an issuer's oauth token resource, return a valid token from the issuer
 function withValidClientToken(errorHandler, token, clientID, clientSecret, authURL, callback) {
   if (CHECK_PERMISSIONS || CHECK_IDENTITY) {
-    var claims = getClaims(token)
+    var claims = getClaimsFromToken(token)
     if (claims != null && (claims.exp * 1000) > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
       callback()
     else {
@@ -835,12 +835,12 @@ function refreshPublicKeysForIssuers() {
 
 setInterval(refreshPublicKeysForIssuers, TOKEN_KEY_REFERESH_INTERVAL)
 
-function isValidTokenFromIssuer(req, res, issuerTokenKeyURL, callback) {
-  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, keys => isValidToken(getToken(req.headers.authorization), keys, callback))
+function isValidTokenFromIssuer(token, res, issuerTokenKeyURL, callback) {
+  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, keys => isValidToken(token, keys, callback))
 }
 
 function getEmailFromToken(token) {
-  var claims = getClaims(token)
+  var claims = getClaimsFromToken(token)
   return claims == null ? null : ((typeof `${claims.email}`) == 'undefined' ? '' : claims.email)
 }
 
@@ -875,8 +875,8 @@ exports.internalizeURL = internalizeURL
 exports.internalizeURLs = internalizeURLs
 exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
-exports.getClaims = getClaims
 exports.getScopes = getScopes
+exports.getToken = getToken
 exports.forbidden = forbidden
 exports.unauthorized = unauthorized
 exports.applyPatch = applyPatch
