@@ -3,6 +3,7 @@ const http = require('http')
 const https = require('https')
 const jsonpatch= require('./jsonpatch')
 const randomBytes = require('crypto').randomBytes
+const createVerify = require('crypto').createVerify
 const url = require('url')
 const util = require('util')
 const httpKeepAliveAgent = new http.Agent({ keepAlive: true })
@@ -17,6 +18,7 @@ const MIN_TOKEN_VALIDITY_PERIOD = process.env.MIN_TOKEN_VALIDITY_PERIOD || 5000
 const CHECK_PERMISSIONS = process.env.CHECK_PERMISSIONS == 'false' ? false : true
 const CHECK_IDENTITY = CHECK_PERMISSIONS || (process.env.CHECK_IDENTITY == 'true')
 const RUNNING_BEHIND_APIGEE_EDGE = process.env.RUNNING_BEHIND_APIGEE_EDGE == 'true'
+const TOKEN_KEY_REFERESH_INTERVAL = process.env.TOKEN_KEY_REFERESH_INTERVAL ? parseInt(process.env.TOKEN_KEY_REFERESH_INTERVAL) : 5*60*1000 // 5 min refresh
 const fs = require('fs')
 
 function log(functionName, text) {
@@ -716,6 +718,21 @@ function uuid4() {
 }
 // End of section of code adapted from https://github.com/broofa/node-uuid4 under MIT License
 
+function errorHandler(func) {
+  var statusCode
+  var headers
+  return {
+    writeHead: function(statusArg, headersArg) {
+      statusCode = statusArg
+      headers = headersArg
+    },
+    end: function(body) {
+      func({statusCode: statusCode, headers:headers, body:body})
+    }
+  }
+}
+
+// Given a clientId and secret and the URL of an issuer's oauth token resource, return a valid token from the issuer
 function withValidClientToken(errorHandler, token, clientID, clientSecret, authURL, callback) {
   if (CHECK_PERMISSIONS || CHECK_IDENTITY) {
     var claims = getClaims(token)
@@ -739,6 +756,87 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, authU
     }
   } else
     callback()
+}
+
+function isValidToken(token, publicKeys, callback) {
+  if (publicKeys.length == 0)
+    return callback(false, 'no keys provided')
+  if (typeof token != 'string')
+    return callback(false, 'no token provided')    
+  let tokenParts = token.split('.')
+  if (tokenParts.length != 3)
+    return callback(false, 'malformed token')
+  let header = JSON.parse(Buffer.from(tokenParts[0], 'base64').toString())
+  if (header.alg != 'RS256')
+    return callback(false, `token alg must be 'RS256', found ${header.alg}`)
+  let claims = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
+  let signature = tokenParts[2]
+  let signedPart = token.substring(0, token.length - signature.length - 1)
+  for (let i = 0; i< publicKeys.length; i++) {
+    let verified = createVerify('RSA-SHA256').update(signedPart).verify(publicKeys[i], signature, 'base64')
+    if (verified)
+      if (claims.nbf && Date.now() < claims.nbf*1000) 
+        return callback(false, 'token not yet valid')
+      else if (claims.exp && Date.now() > claims.exp*1000)
+        return callback(false, 'token expired')
+      else
+        return callback(verified)
+  }
+  callback(false, 'token signature did not verify')
+}
+
+var PUBLIC_KEYS = {
+}
+
+function getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback) {
+    sendExternalRequestThen(errorHandler, 'GET', issuerTokenKeyURL, {accept: 'application/json'}, null, clientRes => {
+      getClientResponseBody(clientRes, body => {
+        if (clientRes.statusCode == 200) {
+          var jso
+          try {
+            jso = JSON.parse(body)
+          }
+          catch (err) {
+            log('http-helper-functions:getPublicKeyForIssuer', body)
+            internalError(errorHandler, {msg: 'invalid JSON in response', err: err, body: body} )
+          }
+          let keys
+          if (jso) {
+            let key = jso.value
+            if (issuerTokenKeyURL in PUBLIC_KEYS) {
+              keys = PUBLIC_KEYS[issuerTokenKeyURL]
+              if (keys.length == 2)
+                keys.pop()
+              keys.unshift(key)
+            } else
+              keys = PUBLIC_KEYS[issuerTokenKeyURL] = [key]
+            callback(keys)
+          }
+        } else
+          internalError(errorHandler, {msg: 'response not JSON: ' % contentType, body: body})
+      })     
+    })
+}
+
+function withPublicKeysForIssuerDo(errorHandler, issuerTokenKeyURL, callback) {
+  if (issuerTokenKeyURL in PUBLIC_KEYS)
+    callback(PUBLIC_KEYS[issuerTokenKeyURL])
+  else 
+    getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback)
+}
+
+function refreshPublicKeysForIssuers() {
+  log('http-helper-functions:refreshPublicKeysForIssuers', `refreshing token for ${Object.keys(PUBLIC_KEYS)}`)
+  let res = errorHandler(err => log('http-helper-functions:refreshPublicKeysForIssuers', `statusCode: ${err.statusCode} body: ${err.body}`))
+  for (let issuerTokenKeyURL in PUBLIC_KEYS) {
+    getPublicKeyForIssuer(res, issuerTokenKeyURL, (keys) => {})
+  }
+}
+
+setInterval(refreshPublicKeysForIssuers, TOKEN_KEY_REFERESH_INTERVAL)
+
+function isValidTokenFromIssuer(req, res, issuerTokenKeyURL, callback) {
+  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, keys => isValidToken(getToken(req.headers.authorization), keys, callback))
 }
 
 function getEmailFromToken(token) {
@@ -801,3 +899,4 @@ exports.withValidClientToken = withValidClientToken
 exports.getContext = getContext
 exports.normalizeURLPart = normalizeURLPart
 exports.normalizeURL = normalizeURL
+exports.isValidTokenFromIssuer = isValidTokenFromIssuer
