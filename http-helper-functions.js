@@ -135,8 +135,8 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
     path: pathRelativeURL,
     method: method,
     headers: headers,
-    agent: keepAliveAgent(INTERNAL_PROTOCOL)
-  }    
+    agent: keepAliveAgent(protocol)
+  }
   if (port)
     options.port = port
   var startTime = Date.now()
@@ -821,7 +821,7 @@ function isValidToken(token, publicKeys, callback) {
   if (publicKeys.length == 0)
     return callback(false, 'no keys provided')
   if (typeof token != 'string')
-    return callback(false, 'no token provided')    
+    return callback(false, 'no token provided')
   let tokenParts = token.split('.')
   if (tokenParts.length != 3)
     return callback(false, 'malformed token')
@@ -834,7 +834,7 @@ function isValidToken(token, publicKeys, callback) {
   for (let i = 0; i< publicKeys.length; i++) {
     let verified = createVerify('RSA-SHA256').update(signedPart).verify(publicKeys[i], signature, 'base64')
     if (verified)
-      if (claims.nbf && Date.now() < claims.nbf*1000) 
+      if (claims.nbf && Date.now() < claims.nbf*1000)
         return callback(false, 'token not yet valid')
       else if (claims.exp && Date.now() > claims.exp*1000)
         return callback(false, 'token expired')
@@ -873,14 +873,14 @@ function getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback) {
           }
         } else
           internalError(errorHandler, {msg: 'response not JSON: ' % contentType, body: body})
-      })     
+      })
     })
 }
 
 function withPublicKeysForIssuerDo(errorHandler, issuerTokenKeyURL, callback) {
   if (issuerTokenKeyURL in PUBLIC_KEYS)
     callback(PUBLIC_KEYS[issuerTokenKeyURL])
-  else 
+  else
     getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback)
 }
 
