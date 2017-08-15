@@ -170,7 +170,8 @@ function sendInternalRequestThen(res, method, resourceURL, headers, body, callba
     headers = {}
   sendInternalRequest(method, resourceURL, headers, body, function(errStr, clientRes) {
     if (errStr) {
-      var err = {
+      let pathRelativeURL = resourceURL.path
+      let err = {
         err: errStr,
         host: headers.host,
         path: pathRelativeURL,
