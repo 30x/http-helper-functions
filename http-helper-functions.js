@@ -170,7 +170,8 @@ function sendInternalRequestThen(res, method, resourceURL, headers, body, callba
     headers = {}
   sendInternalRequest(method, resourceURL, headers, body, function(errStr, clientRes) {
     if (errStr) {
-      let pathRelativeURL = resourceURL.path
+      let parsedURL = resourceURL.startsWith('//') ? url.parse(INTERNAL_PROTOCOL + resourceURL) : url.parse(resourceURL) // amazingly, url.parse parses URLs that begin with // wrongly
+      let pathRelativeURL = parsedURL.path
       let err = {
         err: errStr,
         host: headers.host,
