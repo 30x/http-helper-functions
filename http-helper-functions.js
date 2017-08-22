@@ -8,6 +8,7 @@ const url = require('url')
 const util = require('util')
 const httpKeepAliveAgent = new http.Agent({ keepAlive: true })
 const httpsKeepAliveAgent = new https.Agent({ keepAlive: true })
+const querystring = require('querystring')
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNAL_PROTOCOL = INTERNAL_SCHEME + ':'
@@ -478,7 +479,7 @@ function forbidden(req, res, body) {
 
 function unauthorized(req, res, body) {
   body = body || 'Unauthorized. request-target: ' + req.url
-  body = JSON.stringify(body)
+  body = typeof body == 'object' ? JSON.stringify(body) : body
   res.writeHead(401, {'content-type': 'application/json',
                       'content-length': Buffer.byteLength(body)})
   res.end(body)
@@ -794,22 +795,22 @@ function errorHandler(func) {
 }
 
 // Given a clientId and secret and the URL of an issuer's oauth token resource, return a valid token from the issuer
-function withValidClientToken(errorHandler, token, clientID, clientSecret, authURL, callback) {
+function withValidClientToken(errorHandler, token, clientID, clientSecret, tokenURL, callback) {
   if (CHECK_PERMISSIONS || CHECK_IDENTITY) {
     var claims = getClaimsFromToken(token)
     if (claims != null && (claims.exp * 1000) > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
       callback()
     else {
       var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
-      var body = `grant_type=client_credentials&client_id=${clientID}&client_secret=${clientSecret}`
-      sendExternalRequestThen(errorHandler, 'POST', authURL, headers, body, function(clientRes) {
+      var body = `grant_type=client_credentials&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}`
+      sendExternalRequestThen(errorHandler, 'POST', tokenURL, headers, body, function(clientRes) {
         getClientResponseBody(clientRes, function(resp_body) {
           if (clientRes.statusCode == 200) {
             token = JSON.parse(resp_body).access_token
             log('withValidClientToken', `retrieved token for: ${clientID}`)
             callback(token)
           } else {
-            log('withValidClientToken', `unable to retrieve token. authURL: ${authURL}, headers: ${util.inspect(headers)}`)
+            log('withValidClientToken', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)}`)
             badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
           }
         })
@@ -819,17 +820,17 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, authU
     callback()
 }
 
-function isValidToken(token, publicKeys, callback) {
+function isValidToken(token, publicKeys, scopes, callback) {
   if (publicKeys.length == 0)
-    return callback(false, 'no keys provided')
+    return callback(false, {msg: 'no keys provided'})
   if (typeof token != 'string')
-    return callback(false, 'no token provided')
+    return callback(false, {msg: 'no token provided'})
   let tokenParts = token.split('.')
   if (tokenParts.length != 3)
-    return callback(false, 'malformed token')
+    return callback(false, {msg: 'malformed token'})
   let header = JSON.parse(Buffer.from(tokenParts[0], 'base64').toString())
   if (header.alg != 'RS256')
-    return callback(false, `token alg must be 'RS256', found ${header.alg}`)
+    return callback(false, {msg: 'token alg must be RS256', found: header.alg})
   let claims = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
   let signature = tokenParts[2]
   let signedPart = token.substring(0, token.length - signature.length - 1)
@@ -837,13 +838,23 @@ function isValidToken(token, publicKeys, callback) {
     let verified = createVerify('RSA-SHA256').update(signedPart).verify(publicKeys[i], signature, 'base64')
     if (verified)
       if (claims.nbf && Date.now() < claims.nbf*1000)
-        return callback(false, 'token not yet valid')
+        return callback(false, {msg: 'token not yet valid'})
       else if (claims.exp && Date.now() > claims.exp*1000)
-        return callback(false, 'token expired')
+        return callback(false, {msg: 'token expired'})
       else
-        return callback(verified)
+        if (scopes && scopes.length > 0)
+          if (claims && claims.scope && claims.scope.length > 0) {
+            let missingScopes = scopes.filter(sc => claims.scope.indexOf(sc) == -1) 
+            if (missingScopes.length > 0)
+              return callback(false, {msg: 'required scopes missing from token', missingScopes: missingScopes, claims: claims})
+            else
+              return callback(true)
+          } else
+            return callback(false, {msg: 'no scopes in token', claims: claims})
+        else  
+          return callback(true)
   }
-  callback(false, 'token signature did not verify')
+  callback(false, {msg: 'token signature did not verify'})
 }
 
 var PUBLIC_KEYS = {
@@ -896,8 +907,138 @@ function refreshPublicKeysForIssuers() {
 
 setInterval(refreshPublicKeysForIssuers, TOKEN_KEY_REFERESH_INTERVAL)
 
-function isValidTokenFromIssuer(token, res, issuerTokenKeyURL, callback) {
-  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, keys => isValidToken(token, keys, callback))
+function isValidTokenFromIssuer(token, res, issuerTokenKeyURL, scopes, callback) {
+  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, keys => isValidToken(token, keys, scopes, callback))
+}
+
+const SSO_KEY_URL = process.env.AUTH_KEY_URL
+const SSO_AUTHORIZATION_URL = process.env.SSO_AUTHORIZATION_URL
+const SSO_TOKEN_URL = process.env.AUTH_URL
+const OAUTH_CALLBACK_URL = encodeURIComponent(process.env.OAUTH_CALLBACK_URL)
+const SSO_CLIENT_ID = encodeURIComponent(process.env.SSO_CLIENT_ID)
+const SSO_CLIENT_SECRET = encodeURIComponent(process.env.SSO_CLIENT_SECRET)
+const SSO_REDIRECT_URL = `${SSO_AUTHORIZATION_URL}?response_type=code&redirect_uri=${OAUTH_CALLBACK_URL}&client_id=${SSO_CLIENT_ID}`
+const SSO_ACCESS_TOKEN_COOKIE = process.env.SSO_ACCESS_TOKEN_COOKIE || 'sso-access-token'
+const SSO_REFRESH_TOKEN_COOKIE = process.env.SSO_ACCESS_TOKEN_COOKIE || 'sso-refresh-token'
+
+function getSSOCookies(req, callback) {
+  let cookieHeader = req.headers.cookie
+  if (cookieHeader) {
+    let accessToken, refreshToken
+    let cookies = cookieHeader.split(';')
+    for (let cookie of cookies) {
+      let cookieParts = cookie.split('=')
+      let cookieToken = cookieParts[0].trim()
+      if (cookieToken == SSO_ACCESS_TOKEN_COOKIE)
+        accessToken = cookieParts[1].trim()
+      else if (cookieToken == SSO_REFRESH_TOKEN_COOKIE)
+        refreshToken = cookieParts[1].trim()
+    }
+    callback(accessToken, refreshToken)
+  } else
+    callback (null, null)
+}
+
+function redirectToAuthServer(res, refreshURL, scope) {
+  let redirectURL = SSO_REDIRECT_URL + `&state=${encodeURIComponent(refreshURL)}&scope=${scope}`
+  let body = `<head><meta http-equiv="refresh" content="0; url=${redirectURL}"></head>\n`
+      + `<a href="${redirectURL}">${redirectURL}</a>`
+  res.writeHead(401, { location: redirectURL })
+  res.end(body)  
+}
+
+// 
+function getTokensFromCodeThen(errorHandler, code, clientID, clientSecret, tokenURL, callback) {
+  var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
+  var body = `grant_type=authorization_code&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}&code=${encodeURIComponent(code)}&redirect_uri=${OAUTH_CALLBACK_URL}&response_type=token`
+  sendExternalRequestThen(errorHandler, 'POST', tokenURL, headers, body, function(clientRes) {
+    getClientResponseBody(clientRes, function(resp_body) {
+      if (clientRes.statusCode == 200) {
+        let accessToken = JSON.parse(resp_body).access_token
+        let refreshToken = JSON.parse(resp_body).refresh_token
+        log('getTokensFromCodeThen', `retrieved token for: ${clientID}`)
+        callback(accessToken, refreshToken)
+      } else {
+        log('getTokensFromCodeThen', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)} body: ${body}`)
+        badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
+      }
+    })
+  })
+}
+
+// 
+function refreshTokenFromIssuer(res, refreshToken, clientID, clientSecret, tokenURL, callback) {
+  var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
+  var body = `grant_type=refresh_token&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}&refresh_token=${refreshToken}`
+  sendExternalRequestThen(res, 'POST', tokenURL, headers, body, function(clientRes) {
+    getClientResponseBody(clientRes, function(resp_body) {
+      if (clientRes.statusCode == 200) {
+        let accessToken = JSON.parse(resp_body).access_token
+        let refreshToken = JSON.parse(resp_body).refresh_token
+        log('refreshTokenFromIssuer', `retrieved token for: ${clientID}`)
+        callback(accessToken, refreshToken)
+      } else {
+        log('refreshTokenFromIssuer', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)} body: ${body}`)
+        callback(null, null)
+      }
+    })
+  })
+}
+
+/**
+ * Handles the redirect from the Auth Server back to a Resource Server
+ * Trades a code for an auth token
+ * @param {*} req 
+ * @param {*} res 
+ */
+function authorize(req, res) {
+  let parsedURL = url.parse(req.url)
+  let queryParts = querystring.parse(parsedURL.query)
+  let code = queryParts.code
+  let refreshURL = decodeURIComponent(queryParts.state)
+  getTokensFromCodeThen(res, code, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_TOKEN_URL, (accessToken, refreshToken) => {
+    let setCookies = [`${SSO_ACCESS_TOKEN_COOKIE}=${accessToken}`, `${SSO_REFRESH_TOKEN_COOKIE}=${refreshToken}`]
+    res.writeHead(302, { location: refreshURL, 'set-cookie': setCookies })
+    res.end()
+  })
+}
+
+function validateTokenThen(req, res, scopes, callback) {
+  isValidTokenFromIssuer(getToken(req.headers.authorization), res, SSO_KEY_URL, scopes, (isValid, reason) => {
+    if (isValid) // valid token in the authorization header. Good to go
+      callback()
+    else {
+      let accept = req.headers.accept
+      if (req.method === 'GET' && accept && accept.startsWith('text/html')) // call from a browser, or something acting like one
+        getSSOCookies(req, (accessToken, refreshToken) => {
+          isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+            if (isValid) { // valid token in the cookie. Good to go
+              req.headers.authorization = `Bearer ${accessToken}`
+              callback()
+            } else
+              if (refreshToken)
+                refreshTokenFromIssuer(res, refreshToken, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_TOKEN_URL, (accessToken, refreshToken) => {
+                  if (accessToken) {
+                    req.headers.authorization = `Bearer ${accessToken}`
+                    let setCookies = [`${SSO_ACCESS_TOKEN_COOKIE}=${accessToken}`, `${SSO_REFRESH_TOKEN_COOKIE}=${refreshToken}`]
+                    res.setHeader('set-cookie', setCookies)
+                    isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+                      if (isValid) // valid token in the refreshed token. Good to go
+                        callback()
+                      else 
+                        redirectToAuthServer(res, req.url, scopes)
+                    })
+                  } else
+                    redirectToAuthServer(res, req.url, scopes)
+                })
+              else 
+                redirectToAuthServer(res, req.url, scopes) 
+          })
+        })
+      else
+        unauthorized(req, res, reason)
+    }
+  })
 }
 
 function getEmailFromToken(token) {
@@ -957,10 +1098,14 @@ exports.patchInternalResourceThen = patchInternalResourceThen
 exports.postToInternalResourceThen = postToInternalResourceThen
 exports.getClientResponseObject = getClientResponseObject
 exports.withValidClientToken = withValidClientToken
+exports.validateTokenThen = validateTokenThen
+exports.authorize = authorize
 exports.getContext = getContext
 exports.normalizeURLPart = normalizeURLPart
 exports.normalizeURL = normalizeURL
-exports.isValidTokenFromIssuer = isValidTokenFromIssuer
 exports.withExternalResourceDo = withExternalResourceDo
 exports.patchExternalResourceThen = patchExternalResourceThen
 exports.postToExternalResourceThen = postToExternalResourceThen
+
+// exported for testing only
+exports.isValidTokenFromIssuer = isValidTokenFromIssuer
