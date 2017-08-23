@@ -939,8 +939,10 @@ function getSSOCookies(req, callback) {
     callback (null, null)
 }
 
-function redirectToAuthServer(res, refreshURL, scope) {
-  let redirectURL = SSO_REDIRECT_URL + `&state=${encodeURIComponent(refreshURL)}&scope=${scope}`
+function redirectToAuthServer(res, refreshURL, scopes) {
+  let redirectURL = SSO_REDIRECT_URL + `&state=${encodeURIComponent(refreshURL)}`
+  for (let scope of scopes)
+    redirectURL += `&${scope}`
   let body = `<head><meta http-equiv="refresh" content="0; url=${redirectURL}"></head>\n`
       + `<a href="${redirectURL}">${redirectURL}</a>`
   res.writeHead(401, { location: redirectURL })

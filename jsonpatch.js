@@ -1,7 +1,8 @@
 /*
- * This is a slightly hacked version of the json patch code whose attributions are below (MIT license)
- * The code is hacked to automatically create an array if it is absent when appending to the array. It is
+ * This is a slightly modified version of the json patch code whose attributions are below (MIT license)
+ * The code is modified to automatically create an array if it is absent when appending to the array. It is
  * thus no longer compatible with http://tools.ietf.org/html/rfc6902, which would fail the patch.
+ * See lines 181-184.
  */
 /* @preserve
  * JSONPatch.js
@@ -178,6 +179,7 @@ JSONPointer.prototype._action = function (doc, handler, mutate) {
       } else if (typeof node === "object") {
         if (!Object.hasOwnProperty.call(node, segment)) {
           if (index == that.path.length-2 && that._get_segment(index+1, node) == '-')
+            // departure from the standard to allow appending to an array that does not yet exist
             node[segment] = []
           else
             throw new PatchApplyError('Path not found in document');
