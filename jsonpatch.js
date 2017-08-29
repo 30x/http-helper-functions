@@ -3,6 +3,10 @@
  * The code is modified to automatically create an array if it is absent when appending to the array. It is
  * thus no longer compatible with http://tools.ietf.org/html/rfc6902, which would fail the patch.
  * See lines 181-184.
+ *
+ * The code is also modified to allow removing a value that does not exist, making remove a no-op.
+ * See lines 264-266.
+ *
  */
 /* @preserve
  * JSONPatch.js
@@ -235,7 +239,7 @@ JSONPointer.prototype.add = function (doc, value, mutate) {
 
 
 /* Public: Takes a JSON document and removes the value pointed to.
-  * It is an error to attempt to remove a value that doesn't exist.
+  * It is an error to attempt to remove a value that doesn't exist. ( per rfc6902 )
   *
   * doc - The document to operate against. May be mutated so should
   * not be reused after the call.
@@ -257,7 +261,10 @@ JSONPointer.prototype.remove = function (doc, mutate) {
   }
   return this._action(doc, function (node, lastSegment) {
       if (!Object.hasOwnProperty.call(node,lastSegment)) {
-        throw new PatchApplyError('Remove operation must point to an existing value!');
+        // departure from the standard which allows remove on a non existing value
+        return node;
+        // Original behavior:
+        // throw new PatchApplyError('Remove operation must point to an existing value!');
       }
       if (Array.isArray(node)) {
         node.splice(lastSegment, 1);

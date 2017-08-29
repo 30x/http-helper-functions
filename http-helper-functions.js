@@ -83,7 +83,7 @@ function getHostIPThen(callback) {
   getHostIPFromFileThen(callback)
 }
 
-function setContentWithLenthAndType(headers, body) {
+function setContentWithLengthAndType(headers, body) {
   if (headers.accept === undefined)
     headers.accept = 'application/json'
   if (body) {
@@ -123,7 +123,7 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
   let pathRelativeURL = parsedURL.path
   var id = generateIdentifier()
   log('http-helper-functions:sendInternalRequest', `id: ${id} method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
-  body = setContentWithLenthAndType(headers, body)
+  body = setContentWithLengthAndType(headers, body)
   if (SHIPYARD_PRIVATE_SECRET !== undefined)
     headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
   if (parsedURL.host != null && 'host' in headers) {
@@ -261,7 +261,7 @@ function sendExternalRequest(method, targetUrl, headers, body, callback) {
   }
   var id = generateIdentifier()
   log('http-helper-functions:sendExternalRequest', `id: ${id} method: ${method} url: ${targetUrl}`)
-  body = setContentWithLenthAndType(headers, body)
+  body = setContentWithLengthAndType(headers, body)
   var urlParts = url.parse(targetUrl)
   var options = {
     protocol: urlParts.protocol,
@@ -455,54 +455,54 @@ function getScopes(auth) {
 function methodNotAllowed(req, res, allow) {
   var body = 'Method not allowed. request-target: ' + req.url + ' method: ' + req.method + '\n'
   body = JSON.stringify(body)
-  res.writeHead(405, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body),
-                      'allow': allow.join(', ') })
+  res.writeHead(405, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body),
+                      'Allow': allow.join(', ') })
   res.end(body)
 }
 
 function notFound(req, res, body) {
   body = body || `Not Found. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
   body = JSON.stringify(body)
-  res.writeHead(404, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body)})
+  res.writeHead(404, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function forbidden(req, res, body) {
   body = body || `Forbidden. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
   body = JSON.stringify(body)
-  res.writeHead(403, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body)})
+  res.writeHead(403, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function unauthorized(req, res, body) {
   body = body || 'Unauthorized. request-target: ' + req.url
   body = typeof body == 'object' ? JSON.stringify(body) : body
-  res.writeHead(401, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body)})
+  res.writeHead(401, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function badRequest(res, err) {
   var body = JSON.stringify(err)
-  res.writeHead(400, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body)})
+  res.writeHead(400, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function internalError(res, err) {
   var body = JSON.stringify(err)
-  res.writeHead(500, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body)})
+  res.writeHead(500, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
 function duplicate(res, err) {
   var body = JSON.stringify(err)
-  res.writeHead(409, {'content-type': 'application/json',
-                      'content-length': Buffer.byteLength(body)})
+  res.writeHead(409, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
@@ -539,7 +539,7 @@ function respond(req, res, status, headers, body, contentType) {
     var contentType = headers['content-type']
     var isJson = contentType.startsWith('application/') && contentType.endsWith('json')
     body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : isJson ? JSON.stringify(body) : body.toString()
-    headers['content-length'] = Buffer.byteLength(body)
+    headers['Content-Length'] = Buffer.byteLength(body)
     res.writeHead(status, headers)
     res.end(body)
   } else {
