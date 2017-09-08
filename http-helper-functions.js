@@ -941,8 +941,9 @@ function getSSOCookies(req, callback) {
 
 function redirectToAuthServer(res, refreshURL, scopes) {
   let redirectURL = SSO_REDIRECT_URL + `&state=${encodeURIComponent(refreshURL)}`
-  for (let scope of scopes)
-    redirectURL += `&${scope}`
+  if (scopes)
+    for (let scope of scopes)
+      redirectURL += `&${scope}`
   let body = `<head><meta http-equiv="refresh" content="0; url=${redirectURL}"></head>\n`
       + `<a href="${redirectURL}">${redirectURL}</a>`
   res.writeHead(401, { location: redirectURL })
@@ -1007,16 +1008,25 @@ function authorize(req, res) {
 
 function validateTokenThen(req, res, scopes, callback) {
   isValidTokenFromIssuer(getToken(req.headers.authorization), res, SSO_KEY_URL, scopes, (isValid, reason) => {
-    if (isValid) // valid token in the authorization header. Good to go
-      callback()
-    else {
+    if (isValid) { // valid token in the authorization header. Good to go
+      let clientToken = getToken(req.headers['x-client-authorization'])
+      if (clientToken)
+        isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+          if (isValid) // valid token in the authorization header. Good to go
+            callback(true)
+          else
+            callback(isValid, reason)
+        })
+      else
+        callback(true)
+    } else {
       let accept = req.headers.accept
       if (req.method === 'GET' && accept && accept.startsWith('text/html')) // call from a browser, or something acting like one
         getSSOCookies(req, (accessToken, refreshToken) => {
           isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
             if (isValid) { // valid token in the cookie. Good to go
               req.headers.authorization = `Bearer ${accessToken}`
-              callback()
+              callback(true)
             } else
               if (refreshToken)
                 refreshTokenFromIssuer(res, refreshToken, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_TOKEN_URL, (accessToken, refreshToken) => {
@@ -1026,7 +1036,7 @@ function validateTokenThen(req, res, scopes, callback) {
                     res.setHeader('set-cookie', setCookies)
                     isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
                       if (isValid) // valid token in the refreshed token. Good to go
-                        callback()
+                        callback(true)
                       else 
                         redirectToAuthServer(res, req.url, scopes)
                     })
@@ -1038,7 +1048,12 @@ function validateTokenThen(req, res, scopes, callback) {
           })
         })
       else
-        unauthorized(req, res, reason)
+        isValidTokenFromIssuer(getToken(req.headers['x-client-authorization']), res, SSO_KEY_URL, scopes, (isValid, reason) => {
+          if (isValid) // valid token in the authorization header. Good to go
+            callback(true)
+          else
+            callback(isValid, reason)
+        })
     }
   })
 }
