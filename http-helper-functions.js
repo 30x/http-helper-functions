@@ -1048,12 +1048,7 @@ function validateTokenThen(req, res, scopes, callback) {
           })
         })
       else
-        isValidTokenFromIssuer(getToken(req.headers['x-client-authorization']), res, SSO_KEY_URL, scopes, (isValid, reason) => {
-          if (isValid) // valid token in the authorization header. Good to go
-            callback(true)
-          else
-            callback(isValid, reason)
-        })
+        callback(isValid, reason)
     }
   })
 }
