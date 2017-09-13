@@ -1047,8 +1047,19 @@ function validateTokenThen(req, res, scopes, callback) {
                 redirectToAuthServer(res, req.url, scopes) 
           })
         })
-      else
-        callback(isValid, reason)
+      else {
+        let clientToken = getToken(req.headers['x-client-authorization'])
+        if (!req.headers.authorization && clientToken)
+          isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+            if (isValid) { // valid token in the x-client-authorization header.
+              delete req.headers.authorization // Remove the invalid token from the req headers, so the caller doesn't mistakenly think it's good
+              callback(true)
+            } else
+              callback(isValid, reason)  
+          })            
+        else
+          callback(isValid, reason)
+      }
     }
   })
 }
