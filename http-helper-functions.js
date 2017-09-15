@@ -234,7 +234,7 @@ function postToInternalResourceThen(res, resourceURL, headers, requestBody, call
       if (Math.floor(clientRes.statusCode / 100) == 2)
         callback(responseBody, clientRes)
       else
-        internalError(res, {msg: 'unable to post to internal resource', url: resourceURL, statusCode: clientRes.statusCode, responseBody: responseBody})
+        respond({headers: {}}, res, clientRes.statusCode, {}, responseBody)
     })
   })
 }
