@@ -213,10 +213,10 @@ function patchInternalResourceThen(res, resourceURL, headers, patch, callback) {
   })
 }
 
-function deleteInternalResourceThen(res, resourceURL, headers, requestBody, callback) {
+function deleteInternalResourceThen(res, resourceURL, headers, callback) {
   if (!headers.accept)
     headers.accept = 'application/json'
-  sendInternalRequestThen(res, 'DELETE', resourceURL, headers, requestBody, function(clientRes) {
+  sendInternalRequestThen(res, 'DELETE', resourceURL, headers, null, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, responseBody => {
       if (Math.floor(clientRes.statusCode / 100) == 2)
         callback(responseBody, clientRes)
@@ -1119,6 +1119,7 @@ exports.flowThroughHeaders = flowThroughHeaders
 exports.withInternalResourceDo = withInternalResourceDo
 exports.patchInternalResourceThen = patchInternalResourceThen
 exports.postToInternalResourceThen = postToInternalResourceThen
+exports.deleteInternalResourceThen = deleteInternalResourceThen
 exports.getClientResponseObject = getClientResponseObject
 exports.withValidClientToken = withValidClientToken
 exports.validateTokenThen = validateTokenThen
