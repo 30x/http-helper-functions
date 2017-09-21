@@ -4,11 +4,13 @@ const https = require('https')
 const jsonpatch= require('./jsonpatch')
 const randomBytes = require('crypto').randomBytes
 const createVerify = require('crypto').createVerify
+const createHmac = require('crypto').createHmac
 const url = require('url')
 const util = require('util')
 const httpKeepAliveAgent = new http.Agent({ keepAlive: true })
 const httpsKeepAliveAgent = new https.Agent({ keepAlive: true })
 const querystring = require('querystring')
+const fs = require('fs')
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNAL_PROTOCOL = INTERNAL_SCHEME + ':'
@@ -21,7 +23,10 @@ const CHECK_PERMISSIONS = process.env.CHECK_PERMISSIONS == 'false' ? false : tru
 const CHECK_IDENTITY = CHECK_PERMISSIONS || (process.env.CHECK_IDENTITY == 'true')
 const RUNNING_BEHIND_APIGEE_EDGE = process.env.RUNNING_BEHIND_APIGEE_EDGE == 'true'
 const TOKEN_KEY_REFERESH_INTERVAL = process.env.TOKEN_KEY_REFERESH_INTERVAL ? parseInt(process.env.TOKEN_KEY_REFERESH_INTERVAL) : 5*60*1000 // 5 min refresh
-const fs = require('fs')
+
+const BROWSER_ACCESSIBLE_HOST = process.env.BROWSER_ACCESSIBLE_HOST
+const XSRF_SECRET = process.env.XSRF_SECRET
+const XSRF_TOKEN_TIMEOUT = process.env.XSRF_SECRET || 2*60*60*1000 // 2 hrs
 
 function log(functionName, text) {
   console.log(new Date().toISOString(), process.env.COMPONENT_NAME, functionName, text)
@@ -445,6 +450,32 @@ function getToken(auth) {
 
 function getUser(auth) {
   return getUserFromToken(getToken(auth))
+}
+
+function getTokenFromReq(req) {
+  let token = req.__xxx_token__
+  if (token === undefined) {  
+    token = req.__xxx_token__ = getToken(req.authorization);
+  }
+  return token
+}
+
+function getClaimsFromReq(req) {
+  let claims = req.__xxx_claims__;
+  if (claims == undefined) {
+    let token = getTokenFromReq(req);
+    claims = req.__xxx_claims__ = getClaimsFromToken(token)
+  }
+  return claims    
+}
+
+function getUserFromReq(req) {
+  let user = req.__xxx_user__
+  if (user === undefined) {
+    let claims = getClaimsFromReq(req)
+    user = req.__xxx_user__ = claims == null ? null : `${claims.iss}#${claims.sub}`
+    }
+  return user
 }
 
 function getScopes(auth) {
@@ -908,7 +939,9 @@ function refreshPublicKeysForIssuers() {
 setInterval(refreshPublicKeysForIssuers, TOKEN_KEY_REFERESH_INTERVAL)
 
 function isValidTokenFromIssuer(token, res, issuerTokenKeyURL, scopes, callback) {
-  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, keys => isValidToken(token, keys, scopes, callback))
+  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, (keys) => {
+    isValidToken(token, keys, scopes, callback)
+  })
 }
 
 const SSO_KEY_URL = process.env.AUTH_KEY_URL
@@ -1006,53 +1039,85 @@ function authorize(req, res) {
   })
 }
 
+const UNSAFE_METHODS = ['POST', 'PATCH', 'DELETE', 'PUT']
+const SAFE_METHODS = ['GET', 'OPTIONS', 'HEAD']
+
+function calculateXsrfHash(user, issueTime) {
+  let text = user + ':' + issueTime;
+  return createHmac('sha1', XSRF_SECRET).update(text).digest('hex');
+}
+
+function calculateXsrfToken(user) {
+  let now = Date.now();
+  let hash = calculateXsrfHash(user, now);
+  let b64 = new Buffer(hash).toString('base64');
+  return b64 + ':' + now;
+}
+
+function ifXsrfHeaderValidThen(req, res, callback) {
+  let notBrowserHost = req.headers.host != BROWSER_ACCESSIBLE_HOST
+  let safeMethod = SAFE_METHODS.includes(req.method)
+  if (notBrowserHost || safeMethod) {
+    callback()
+  } else {         
+    let xsrfToken = req.headers.xsrfToken;
+    if (xsrfToken) {
+      let parts = xsrfToken.split(':')
+      if (parts.length == 2) {
+        let issueTime = parts[1]
+        if (issueTime + XSRF_TOKEN_TIMEOUT > Date.now()) {
+          let hash = Buffer.from(parts[0], 'base64');
+          let expectedHash = calculateXsrfHash(user, issueTime)
+          if (expectedHash == hash) {
+            callback()
+          } else {
+            rLib.forbidden(res, {msg: 'invalid xsrf token'})
+          }
+        } else {
+          rLib.forbidden(res, {msg: 'xsrf token expired'})                  
+        }
+      } else {
+        rLib.forbidden(res, {msg: 'invalid xsrf token'})        
+      }
+    } else {
+      rLib.forbidden(res, {msg: 'missing xsrf token'})
+    }
+  }
+}
+
 function validateTokenThen(req, res, scopes, callback) {
   isValidTokenFromIssuer(getToken(req.headers.authorization), res, SSO_KEY_URL, scopes, (isValid, reason) => {
-    if (isValid) { // valid token in the authorization header. Good to go
-      let clientToken = getToken(req.headers['x-client-authorization'])
-      if (clientToken)
-        isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
-          if (isValid) // valid token in the authorization header. Good to go
-            callback(true)
-          else
-            callback(isValid, reason)
-        })
-      else
-        callback(true)
-    } else {
-      let accept = req.headers.accept
-      if (req.method === 'GET' && accept && accept.startsWith('text/html')) // call from a browser, or something acting like one
-        getSSOCookies(req, (accessToken, refreshToken) => {
-          isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
-            if (isValid) { // valid token in the cookie. Good to go
-              req.headers.authorization = `Bearer ${accessToken}`
+    if (isValid) { 
+      // valid token in the authorization header. 
+      // if this is a modification request on the host for browsers
+      // then the xsrf token must be present and correct
+      ifXsrfHeaderValidThen(req, res, () => {
+        // If there is an x-client-authorization token it has to be good too 
+        let clientToken = getToken(req.headers['x-client-authorization'])
+        if (clientToken)
+          isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+            if (isValid) // valid token in the authorization header. Good to go
               callback(true)
-            } else
-              if (refreshToken)
-                refreshTokenFromIssuer(res, refreshToken, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_TOKEN_URL, (accessToken, refreshToken) => {
-                  if (accessToken) {
-                    req.headers.authorization = `Bearer ${accessToken}`
-                    let setCookies = [`${SSO_ACCESS_TOKEN_COOKIE}=${accessToken}`, `${SSO_REFRESH_TOKEN_COOKIE}=${refreshToken}`]
-                    res.setHeader('set-cookie', setCookies)
-                    isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
-                      if (isValid) // valid token in the refreshed token. Good to go
-                        callback(true)
-                      else 
-                        redirectToAuthServer(res, req.url, scopes)
-                    })
-                  } else
-                    redirectToAuthServer(res, req.url, scopes)
-                })
-              else 
-                redirectToAuthServer(res, req.url, scopes) 
+            else
+              callback(isValid, reason)
           })
-        })
-      else {
+        else
+          callback(true)
+      });
+    } else {
+      let accept = req.headers.accept;
+      if (req.method === 'GET' && accept && accept.startsWith('text/html')) {
+        // call from a browser, or something acting like one
+        validate_html_get()
+      } else {
         let clientToken = getToken(req.headers['x-client-authorization'])
         if (!req.headers.authorization && clientToken)
           isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
-            if (isValid) { // valid token in the x-client-authorization header.
-              delete req.headers.authorization // Remove the invalid token from the req headers, so the caller doesn't mistakenly think it's good
+            if (isValid) { 
+              // valid token in the x-client-authorization header.
+              // Remove the invalid token from the req headers, 
+              // so the caller knows only the 'x-client-authorization' is good
+              delete req.headers.authorization
               callback(true)
             } else
               callback(isValid, reason)  
@@ -1062,6 +1127,34 @@ function validateTokenThen(req, res, scopes, callback) {
       }
     }
   })
+  
+  function validate_html_get() {
+    getSSOCookies(req, (accessToken, refreshToken) => {
+      isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+        if (isValid) { // valid token in the cookie. Good to go
+          req.headers.authorization = `Bearer ${accessToken}`
+          callback(true)
+        } else
+          if (refreshToken)
+            refreshTokenFromIssuer(res, refreshToken, SSO_CLIENT_ID, SSO_CLIENT_SECRET, SSO_TOKEN_URL, (accessToken, refreshToken) => {
+              if (accessToken) {
+                req.headers.authorization = `Bearer ${accessToken}`
+                let setCookies = [`${SSO_ACCESS_TOKEN_COOKIE}=${accessToken}`, `${SSO_REFRESH_TOKEN_COOKIE}=${refreshToken}`]
+                res.setHeader('set-cookie', setCookies)
+                isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+                  if (isValid) // valid token in the refreshed token. Good to go
+                    callback(true)
+                  else 
+                    redirectToAuthServer(res, req.url, scopes)
+                })
+              } else
+                redirectToAuthServer(res, req.url, scopes)
+            })
+          else 
+            redirectToAuthServer(res, req.url, scopes) 
+      })
+    })
+  }
 }
 
 function getEmailFromToken(token) {
