@@ -936,7 +936,10 @@ function refreshPublicKeysForIssuers() {
   }
 }
 
-setInterval(refreshPublicKeysForIssuers, TOKEN_KEY_REFERESH_INTERVAL)
+let refreshPublicKeysForIssuersTimer = setInterval(refreshPublicKeysForIssuers, TOKEN_KEY_REFERESH_INTERVAL)
+function finalize() {
+  refreshPublicKeysForIssuersTimer.unref()
+}
 
 function isValidTokenFromIssuer(token, res, issuerTokenKeyURL, scopes, callback) {
   withPublicKeysForIssuerDo(res, issuerTokenKeyURL, (keys) => {
@@ -1223,6 +1226,7 @@ exports.normalizeURL = normalizeURL
 exports.withExternalResourceDo = withExternalResourceDo
 exports.patchExternalResourceThen = patchExternalResourceThen
 exports.postToExternalResourceThen = postToExternalResourceThen
+exports.finalize=finalize
 
 // exported for testing only
 exports.isValidTokenFromIssuer = isValidTokenFromIssuer
