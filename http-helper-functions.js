@@ -455,7 +455,7 @@ function getUser(auth) {
 function getTokenFromReq(req) {
   let token = req.__xxx_token__
   if (token === undefined) {  
-    token = req.__xxx_token__ = getToken(req.authorization);
+    token = req.__xxx_token__ = getToken(req.headers.authorization);
   }
   return token
 }
@@ -474,7 +474,7 @@ function getUserFromReq(req) {
   if (user === undefined) {
     let claims = getClaimsFromReq(req)
     user = req.__xxx_user__ = claims == null ? null : `${claims.iss}#${claims.sub}`
-    }
+  }
   return user
 }
 
@@ -833,7 +833,7 @@ function errorHandler(func) {
 
 // Given a clientId and secret and the URL of an issuer's oauth token resource, return a valid token from the issuer
 function withValidClientToken(errorHandler, token, clientID, clientSecret, tokenURL, callback) {
-  if (CHECK_PERMISSIONS || CHECK_IDENTITY) {
+  if (CHECK_IDENTITY) {
     var claims = getClaimsFromToken(token)
     if (claims != null && (claims.exp * 1000) > Date.now() + MIN_TOKEN_VALIDITY_PERIOD)
       callback()
@@ -1095,47 +1095,53 @@ function ifXsrfHeaderValidThen(req, res, callback) {
 }
 
 function validateTokenThen(req, res, scopes, callback) {
-  isValidTokenFromIssuer(getToken(req.headers.authorization), res, SSO_KEY_URL, scopes, (isValid, reason) => {
-    if (isValid) { 
-      // valid token in the authorization header. 
-      // if this is a modification request on the host for browsers
-      // then the xsrf token must be present and correct
-      ifXsrfHeaderValidThen(req, res, () => {
-        // If there is an x-client-authorization token it has to be good too 
-        let clientToken = getToken(req.headers['x-client-authorization'])
-        if (clientToken)
-          isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
-            if (isValid) // valid token in the authorization header. Good to go
-              callback(true)
-            else
-              callback(isValid, reason)
-          })
-        else
-          callback(true)
-      });
-    } else {
-      let accept = req.headers.accept;
-      if (req.method === 'GET' && accept && accept.startsWith('text/html')) {
-        // call from a browser, or something acting like one
-        validate_html_get()
+  if (CHECK_IDENTITY)
+    isValidTokenFromIssuer(getToken(req.headers.authorization), res, SSO_KEY_URL, scopes, (isValid, reason) => {
+      if (isValid) { 
+        // valid token in the authorization header. 
+        // if this is a modification request on the host for browsers
+        // then the xsrf token must be present and correct
+        ifXsrfHeaderValidThen(req, res, () => {
+          // If there is an x-client-authorization token it has to be good too 
+          let clientToken = getToken(req.headers['x-client-authorization'])
+          if (clientToken)
+            isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+              if (isValid) // valid token in the authorization header. Good to go
+                callback(true)
+              else
+                callback(isValid, reason)
+            })
+          else
+            callback(true)
+        });
       } else {
-        let clientToken = getToken(req.headers['x-client-authorization'])
-        if (!req.headers.authorization && clientToken)
-          isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
-            if (isValid) { 
-              // valid token in the x-client-authorization header.
-              // Remove the invalid token from the req headers, 
-              // so the caller knows only the 'x-client-authorization' is good
-              delete req.headers.authorization
-              callback(true)
-            } else
-              callback(isValid, reason)  
-          })            
-        else
-          callback(isValid, reason)
+        let accept = req.headers.accept;
+        if (req.method === 'GET' && accept && accept.startsWith('text/html')) {
+          // call from a browser, or something acting like one
+          validate_html_get()
+        } else {
+          let clientToken = getToken(req.headers['x-client-authorization'])
+          if (!req.headers.authorization && clientToken)
+            isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+              if (isValid) { 
+                // valid token in the x-client-authorization header.
+                // Remove the invalid token from the req headers, 
+                // so the caller knows only the 'x-client-authorization' is good
+                delete req.headers.authorization
+                callback(true)
+              } else
+                callback(isValid, reason)  
+            })            
+          else
+            callback(isValid, reason)
+        }
       }
-    }
-  })
+    })
+  else
+    if (req.headers.authorization)
+      callback(true)
+    else
+      callback(false, {msg: 'no token provided'})
   
   function validate_html_get() {
     getSSOCookies(req, (accessToken, refreshToken) => {
@@ -1202,6 +1208,7 @@ exports.internalizeURL = internalizeURL
 exports.internalizeURLs = internalizeURLs
 exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
+exports.getUserFromReq = getUserFromReq
 exports.getScopes = getScopes
 exports.getToken = getToken
 exports.forbidden = forbidden
