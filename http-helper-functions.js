@@ -393,7 +393,9 @@ function getClientResponseBody(res, callback) {
 function getClientResponseObject(errorHandler, res, host, callback) {
   getClientResponseBody(res, function(body) {
     var contentType = res.headers['content-type']
-    if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json')))
+    if (contentType !== undefined)
+      contentType = contentType.split(';')[0]
+    if (contentType === undefined || (contentType.startsWith('application/', 0) && contentType.endsWith('json')))
       if (body == '')
         callback()
       else {
@@ -407,8 +409,9 @@ function getClientResponseObject(errorHandler, res, host, callback) {
         }
         if (jso)
           callback(internalizeURLs(jso, host, contentType))
-      } else
-        internalError(errorHandler, {msg: 'response not JSON', contentType: contentType, body: body})
+      } 
+    else
+      internalError(errorHandler, {msg: 'response not JSON', headers: res.headers, body: body})
   })
 }
 
@@ -894,46 +897,40 @@ function isValidToken(token, publicKeys, scopes, callback) {
   callback(false, {msg: 'token signature did not verify'})
 }
 
-var PUBLIC_KEYS = {
+let PUBLIC_KEYS = {
 }
 
-function withIssuerTokenKeyURL(issuer, callback) {
-  /* Temporary hack. Calculate key endpoint from the URL pattern used by SSO
-     Replace with OpenID discovery document lookup.
-     Using OpenID discovery is really only attractive if we can  also get 
-     the URLs of the endPoints for converting emails to ids and vice-versa.
-  */
-  callback(issuer + '/token_key')
+let ISSUER_DISCOVER_DOCS = {
+}
+
+function getDiscoveryDocument(errorHandler, issuer, callback) {
+  let discoveryUrl = issuer + '/.well-known/openid-configuration'
+  withExternalResourceDo(errorHandler, discoveryUrl, {accept: 'application/json'}, callback)
+}
+
+function withIssuerTokenKeyURL(errorHandler, issuer, callback) {
+  if (issuer in ISSUER_DISCOVER_DOCS)
+    callback(ISSUER_DISCOVER_DOCS[issuer].jwks_uri)
+  else
+    getDiscoveryDocument(errorHandler, issuer, (jso) => {
+      ISSUER_DISCOVER_DOCS[issuer] = jso
+      callback(jso.jwks_uri)
+    })
 }
 
 function getPublicKeyForIssuer(errorHandler, issuer, callback) {
-  withIssuerTokenKeyURL(issuer, (issuerTokenKeyURL) => {
-    sendExternalRequestThen(errorHandler, 'GET', issuerTokenKeyURL, {accept: 'application/json'}, null, clientRes => {
-      getClientResponseBody(clientRes, body => {
-        if (clientRes.statusCode == 200) {
-          var jso
-          try {
-            jso = JSON.parse(body)
-          }
-          catch (err) {
-            log('http-helper-functions:getPublicKeyForIssuer', body)
-            internalError(errorHandler, {msg: 'invalid JSON in response', err: err, body: body} )
-          }
-          let keys
-          if (jso) {
-            let key = jso.value
-            if (issuer in PUBLIC_KEYS) {
-              keys = PUBLIC_KEYS[issuer]
-              if (keys.length == 2)
-                keys.pop()
-              keys.unshift(key)
-            } else
-              keys = PUBLIC_KEYS[issuer] = [key]
-            callback(keys)
-          }
-        } else
-          internalError(errorHandler, {msg: 'response not JSON: ' % contentType, body: body})
-      })
+  withIssuerTokenKeyURL(errorHandler, issuer, (issuerTokenKeyURL) => {
+    withExternalResourceDo(errorHandler, issuerTokenKeyURL, {accept: 'application/json'}, (jso) => {
+      let keys
+      let key = jso.value
+      if (issuer in PUBLIC_KEYS) {
+        keys = PUBLIC_KEYS[issuer]
+        if (keys.length == 2)
+          keys.pop()
+        keys.unshift(key)
+      } else
+        keys = PUBLIC_KEYS[issuer] = [key]
+      callback(keys)
     })
   })
 }
@@ -961,9 +958,12 @@ function finalize() {
 }
 
 function isValidTokenFromIssuer(token, res, scopes, callback) {
-  withPublicKeysForIssuerDo(res, token, (keys) => {
-    isValidToken(token, keys, scopes, callback)
-  })
+  if (token)
+    withPublicKeysForIssuerDo(res, token, (keys) => {
+      isValidToken(token, keys, scopes, callback)
+    })
+  else
+    callback(false, {msg: 'no token provided'})
 }
 
 const SSO_AUTHORIZATION_URL = process.env.SSO_AUTHORIZATION_URL
