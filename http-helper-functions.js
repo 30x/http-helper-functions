@@ -904,7 +904,7 @@ let ISSUER_DISCOVER_DOCS = {
 }
 
 function getDiscoveryDocument(errorHandler, issuer, callback) {
-  let discoveryUrl = issuer + '/.well-known/openid-configuration'
+  let discoveryUrl = url.resolve(issuer, '/.well-known/openid-configuration')
   withExternalResourceDo(errorHandler, discoveryUrl, {accept: 'application/json'}, callback)
 }
 
