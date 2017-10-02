@@ -161,7 +161,7 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
     var the_options = Object.assign({}, options)
     delete the_options.agent
     let targetUrl = `${options.hostname}${options.port ? `:${options.port}` : ''}${options.path}`
-    log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl} options: options: ${util.inspect(the_options)}`)
+    log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl}`)
     callback(err)
   })
   if (body)
@@ -848,7 +848,7 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, token
             callback(token)
           } else {
             log('withValidClientToken', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)}`)
-            badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
+            badRequest(errorHandler, {msg: 'unable to retrieve client token', body: JSON.parse(resp_body), url: tokenURL, clientID: encodeURIComponent(clientID)})
           }
         })
       })
@@ -881,7 +881,7 @@ function isValidToken(token, publicKeys, scopes, callback) {
       else
         if (scopes && scopes.length > 0)
           if (claims && claims.scope && claims.scope.length > 0) {
-            let missingScopes = scopes.filter(sc => claims.scope.indexOf(sc) == -1) 
+            let missingScopes = scopes.filter(sc => !claims.scope.includes(sc)) 
             if (missingScopes.length > 0)
               return callback(false, {msg: 'required scopes missing from token', missingScopes: missingScopes, claims: claims})
             else
@@ -897,7 +897,17 @@ function isValidToken(token, publicKeys, scopes, callback) {
 var PUBLIC_KEYS = {
 }
 
-function getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback) {
+function withIssuerTokenKeyURL(issuer, callback) {
+  /* Temporary hack. Calculate key endpoint from the URL pattern used by SSO
+     Replace with OpenID discovery document lookup.
+     Using OpenID discovery is really only attractive if we can  also get 
+     the URLs of the endPoints for converting emails to ids and vice-versa.
+  */
+  callback(issuer + '/token_key')
+}
+
+function getPublicKeyForIssuer(errorHandler, issuer, callback) {
+  withIssuerTokenKeyURL(issuer, (issuerTokenKeyURL) => {
     sendExternalRequestThen(errorHandler, 'GET', issuerTokenKeyURL, {accept: 'application/json'}, null, clientRes => {
       getClientResponseBody(clientRes, body => {
         if (clientRes.statusCode == 200) {
@@ -912,33 +922,36 @@ function getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback) {
           let keys
           if (jso) {
             let key = jso.value
-            if (issuerTokenKeyURL in PUBLIC_KEYS) {
-              keys = PUBLIC_KEYS[issuerTokenKeyURL]
+            if (issuer in PUBLIC_KEYS) {
+              keys = PUBLIC_KEYS[issuer]
               if (keys.length == 2)
                 keys.pop()
               keys.unshift(key)
             } else
-              keys = PUBLIC_KEYS[issuerTokenKeyURL] = [key]
+              keys = PUBLIC_KEYS[issuer] = [key]
             callback(keys)
           }
         } else
           internalError(errorHandler, {msg: 'response not JSON: ' % contentType, body: body})
       })
     })
+  })
 }
 
-function withPublicKeysForIssuerDo(errorHandler, issuerTokenKeyURL, callback) {
-  if (issuerTokenKeyURL in PUBLIC_KEYS)
-    callback(PUBLIC_KEYS[issuerTokenKeyURL])
+function withPublicKeysForIssuerDo(errorHandler, token, callback) {
+  let claims = getClaimsFromToken(token)
+  let issuer = claims.iss
+  if (issuer in PUBLIC_KEYS)
+    callback(PUBLIC_KEYS[issuer])
   else
-    getPublicKeyForIssuer(errorHandler, issuerTokenKeyURL, callback)
+    getPublicKeyForIssuer(errorHandler, issuer, callback)
 }
 
 function refreshPublicKeysForIssuers() {
   log('http-helper-functions:refreshPublicKeysForIssuers', `refreshing token for ${Object.keys(PUBLIC_KEYS)}`)
   let res = errorHandler(err => log('http-helper-functions:refreshPublicKeysForIssuers', `statusCode: ${err.statusCode} body: ${err.body}`))
-  for (let issuerTokenKeyURL in PUBLIC_KEYS) {
-    getPublicKeyForIssuer(res, issuerTokenKeyURL, (keys) => {})
+  for (let issuer in PUBLIC_KEYS) {
+    getPublicKeyForIssuer(res, issuer, (keys) => {})
   }
 }
 
@@ -947,13 +960,12 @@ function finalize() {
   refreshPublicKeysForIssuersTimer.unref()
 }
 
-function isValidTokenFromIssuer(token, res, issuerTokenKeyURL, scopes, callback) {
-  withPublicKeysForIssuerDo(res, issuerTokenKeyURL, (keys) => {
+function isValidTokenFromIssuer(token, res, scopes, callback) {
+  withPublicKeysForIssuerDo(res, token, (keys) => {
     isValidToken(token, keys, scopes, callback)
   })
 }
 
-const SSO_KEY_URL = process.env.AUTH_KEY_URL
 const SSO_AUTHORIZATION_URL = process.env.SSO_AUTHORIZATION_URL
 const SSO_TOKEN_URL = process.env.AUTH_URL
 const OAUTH_CALLBACK_URL = encodeURIComponent(process.env.OAUTH_CALLBACK_URL)
@@ -1095,8 +1107,9 @@ function ifXsrfHeaderValidThen(req, res, callback) {
 }
 
 function validateTokenThen(req, res, scopes, callback) {
-  if (CHECK_IDENTITY)
-    isValidTokenFromIssuer(getToken(req.headers.authorization), res, SSO_KEY_URL, scopes, (isValid, reason) => {
+  if (CHECK_IDENTITY) {
+    let token = getTokenFromReq(req)
+    isValidTokenFromIssuer(token, res, scopes, (isValid, reason) => {
       if (isValid) { 
         // valid token in the authorization header. 
         // if this is a modification request on the host for browsers
@@ -1105,7 +1118,7 @@ function validateTokenThen(req, res, scopes, callback) {
           // If there is an x-client-authorization token it has to be good too 
           let clientToken = getToken(req.headers['x-client-authorization'])
           if (clientToken)
-            isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+            isValidTokenFromIssuer(clientToken, res, scopes, (isValid, reason) => {
               if (isValid) // valid token in the authorization header. Good to go
                 callback(true)
               else
@@ -1122,7 +1135,7 @@ function validateTokenThen(req, res, scopes, callback) {
         } else {
           let clientToken = getToken(req.headers['x-client-authorization'])
           if (!req.headers.authorization && clientToken)
-            isValidTokenFromIssuer(clientToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+            isValidTokenFromIssuer(clientToken, res, scopes, (isValid, reason) => {
               if (isValid) { 
                 // valid token in the x-client-authorization header.
                 // Remove the invalid token from the req headers, 
@@ -1137,7 +1150,7 @@ function validateTokenThen(req, res, scopes, callback) {
         }
       }
     })
-  else
+  } else
     if (req.headers.authorization)
       callback(true)
     else
@@ -1145,7 +1158,7 @@ function validateTokenThen(req, res, scopes, callback) {
   
   function validate_html_get() {
     getSSOCookies(req, (accessToken, refreshToken) => {
-      isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+      isValidTokenFromIssuer(accessToken, res, scopes, (isValid, reason) => {
         if (isValid) { // valid token in the cookie. Good to go
           req.headers.authorization = `Bearer ${accessToken}`
           callback(true)
@@ -1156,7 +1169,7 @@ function validateTokenThen(req, res, scopes, callback) {
                 req.headers.authorization = `Bearer ${accessToken}`
                 let setCookies = [`${SSO_ACCESS_TOKEN_COOKIE}=${accessToken}`, `${SSO_REFRESH_TOKEN_COOKIE}=${refreshToken}`]
                 res.setHeader('set-cookie', setCookies)
-                isValidTokenFromIssuer(accessToken, res, SSO_KEY_URL, scopes, (isValid, reason) => {
+                isValidTokenFromIssuer(accessToken, res, scopes, (isValid, reason) => {
                   if (isValid) // valid token in the refreshed token. Good to go
                     callback(true)
                   else 
@@ -1211,6 +1224,7 @@ exports.getUser = getUser
 exports.getUserFromReq = getUserFromReq
 exports.getScopes = getScopes
 exports.getToken = getToken
+exports.getTokenFromReq = getTokenFromReq
 exports.forbidden = forbidden
 exports.unauthorized = unauthorized
 exports.applyPatch = applyPatch
