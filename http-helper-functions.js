@@ -36,58 +36,6 @@ function keepAliveAgent(protocol) {
   return protocol == 'https:' ? httpsKeepAliveAgent : httpKeepAliveAgent
 }
 
-function getHostIPFromK8SThen(callback) {
-  var token = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString()
-  var cert = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt').toString()
-  var ns = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace').toString()
-  var podName = process.env.POD_NAME
-
-  var headers = {
-    Authorization: `Bearer ${token}`
-  }
-  var options = {
-    protocol: 'https:',
-    hostname: 'kubernetes.default',
-    cert: cert,
-    rejectUnauthorized: false,
-    path: `/api/v1/namespaces/${ns}/pods/${podName}`,
-    method: 'GET',
-    headers: headers
-  }
-  var clientReq = https.request(options, function(res) {
-    res.setEncoding('utf8')
-    var body = ''
-    res.on('data', chunk => body += chunk)
-    res.on('end', function() {
-      if (res.statusCode == 200) {
-        var hostIP = JSON.parse(body).status.hostIP
-        log('http-helper-functions:getHostIPFromK8SThen', `retrieved Kubernetes hostIP : ${hostIP}from K8S API`)
-        callback(null, hostIP)
-      } else {
-        var err = `unable to resolve Host IP. statusCode: ${res.statusCode} body: ${body}`
-        log('http-helper-functions:getHostIPFromK8SThen', err)
-        callback(err)
-      }
-    })
-  })
-  clientReq.on('error', function (err) {
-    log('http-helper-functions:getHostIPFromK8SThen', `error ${err}`)
-  })
-  clientReq.end()
-}
-
-function getHostIPFromFileThen(callback) {
-  var data = fs.readFileSync('/proc/net/route')
-  var hexHostIP = data.toString().split('\n')[1].split('\t')[2]
-  var hostIP = [3,2,1,0].map((i) => parseInt(hexHostIP.slice(i*2,i*2+2), 16)).join('.')
-  log('http-helper-functions:getHostIPFromFileThen', `retrieved Kubernetes hostIP: ${hostIP} from /proc/net/route`)
-  callback(null, hostIP)
-}
-
-function getHostIPThen(callback) {
-  getHostIPFromFileThen(callback)
-}
-
 function setContentWithLengthAndType(headers, body) {
   if (headers.accept === undefined)
     headers.accept = 'application/json'
@@ -116,7 +64,7 @@ function generateIdentifier() {
   return rslt
 }
 
-function sendInternalRequest(method, resourceURL, headers, body, callback) {
+function sendRequest(method, resourceURL, headers, body, callback) {
   if (typeof headers == 'function') {
     callback = headers
     headers = {}
@@ -127,11 +75,9 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
   let protocol = parsedURL.protocol == null ? INTERNAL_PROTOCOL : parsedURL.protocol
   let pathRelativeURL = parsedURL.path
   var id = generateIdentifier()
-  log('http-helper-functions:sendInternalRequest', `id: ${id} method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
+  log('http-helper-functions:sendRequest', `id: ${id} method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
   body = setContentWithLengthAndType(headers, body)
-  if (SHIPYARD_PRIVATE_SECRET !== undefined)
-    headers['x-routing-api-key'] = SHIPYARD_PRIVATE_SECRET
-  if (parsedURL.host != null && 'host' in headers) {
+  if ('host' in headers) {
     headers = Object.assign({}, headers)
     headers.host = parsedURL.host
   }
@@ -147,13 +93,13 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
     options.port = port
   var startTime = Date.now()
   var clientReq = (protocol == 'https:' ? https : http).request(options, function(clientRes) {
-    log('http-helper-functions:sendInternalRequest', `id: ${id} received response after ${Date.now() - startTime} millisecs. method: ${method} hostname: ${hostname}${port ? `:${port}` : ''} url: ${pathRelativeURL}`)
+    log('http-helper-functions:sendRequest', `id: ${id} received response after ${Date.now() - startTime} millisecs. method: ${method} hostname: ${hostname}${port ? `:${port}` : ''} url: ${pathRelativeURL}`)
     callback(null, clientRes)
   })
   clientReq.setTimeout(300000, () => {
-    var msgText = `socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
-    var msg = {msg: 'socket timeout', msgText: msgText}
-    log('http-helper-functions:sendInternalRequest', msgText)
+    var msgText = `id: ${id} socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
+    var msg = {msg: 'socket timeout', msgText: msgText, id: id, timePeriod: Date.now() - startTime, pathRelativeURL: pathRelativeURL}
+    log('http-helper-functions:sendRequest', msgText)
     clientReq.abort()
     callback(msg)
   })
@@ -161,7 +107,7 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
     var the_options = Object.assign({}, options)
     delete the_options.agent
     let targetUrl = `${options.hostname}${options.port ? `:${options.port}` : ''}${options.path}`
-    log('http-helper-functions:sendInternalRequest', `id: ${id} error ${err} targetUrl: ${targetUrl}`)
+    log('http-helper-functions:sendRequest', `id: ${id} error ${err} targetUrl: ${targetUrl}`)
     callback(err)
   })
   if (body)
@@ -169,12 +115,12 @@ function sendInternalRequest(method, resourceURL, headers, body, callback) {
   clientReq.end()
 }
 
-function sendInternalRequestThen(res, method, resourceURL, headers, body, callback) {
+function sendRequestThen(res, method, resourceURL, headers, body, callback) {
   if (typeof headers == 'function')
     [callback, headers] = [headers, {}]
   else if (headers == null)
     headers = {}
-  sendInternalRequest(method, resourceURL, headers, body, function(errStr, clientRes) {
+  sendRequest(method, resourceURL, headers, body, function(errStr, clientRes) {
     if (errStr) {
       let parsedURL = resourceURL.startsWith('//') ? url.parse(INTERNAL_PROTOCOL + resourceURL) : url.parse(resourceURL) // amazingly, url.parse parses URLs that begin with // wrongly
       let pathRelativeURL = parsedURL.path
@@ -185,17 +131,27 @@ function sendInternalRequestThen(res, method, resourceURL, headers, body, callba
         internalRouterHost: process.env.INTERNAL_SY_ROUTER_HOST,
         internalRouterPort: INTERNAL_SY_ROUTER_PORT
       }
-      log('http-helper-functions:sendInternalRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${util.inspect(headers)}`)
-      internalError(res, {msg: 'unable to send internal request', err: err, method: method, host: headers.host, path: pathRelativeURL, headers: headers})
+      log('http-helper-functions:sendRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${util.inspect(headers)}`)
+      internalError(res, {msg: 'unable to send  request', err: err, method: method, host: headers.host, path: pathRelativeURL, headers: headers})
     } else
       callback(clientRes)
   })
 }
 
-function withInternalResourceDo(res, resourceURL, headers, callback) {
+// Kept for backwards compatibility
+function sendInternalRequest(method, resourceURL, headers, body, callback) {
+  sendRequest(method, resourceURL, headers, body, callback)
+}  
+
+// Kept for backwards compatibility
+function sendInternalRequestThen(res, method, resourceURL, headers, body, callback) {
+  sendRequestThen(res, method, resourceURL, headers, body, callback)
+}  
+
+function withResourceDo(res, resourceURL, headers, callback) {
   if (!headers.accept)
     headers.accept = 'application/json'
-  sendInternalRequestThen(res, 'GET', resourceURL, headers, null, function(clientRes) {
+  sendRequestThen(res, 'GET', resourceURL, headers, null, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, body => {
       if (clientRes.statusCode == 200)
         callback(body, clientRes)
@@ -205,10 +161,15 @@ function withInternalResourceDo(res, resourceURL, headers, callback) {
   })
 }
 
-function patchInternalResourceThen(res, resourceURL, headers, patch, callback) {
+// Kept for backwards compatibility
+function withInternalResourceDo(res, resourceURL, headers, callback) {
+  withResourceDo(res, resourceURL, headers, callback)
+}  
+
+function patchResourceThen(res, resourceURL, headers, patch, callback) {
   if (!headers.accept)
     headers.accept = 'application/json'
-  sendInternalRequestThen(res, 'PATCH', resourceURL, headers, patch, function(clientRes) {
+  sendRequestThen(res, 'PATCH', resourceURL, headers, patch, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, body => {
       if (clientRes.statusCode == 200)
         callback(body, clientRes)
@@ -218,10 +179,15 @@ function patchInternalResourceThen(res, resourceURL, headers, patch, callback) {
   })
 }
 
-function deleteInternalResourceThen(res, resourceURL, headers, callback) {
+// Kept for backwards compatibility
+function patchInternalResourceThen(res, resourceURL, headers, patch, callback) {
+  patchResourceThen(res, resourceURL, headers, patch, callback)
+}  
+
+function deleteResourceThen(res, resourceURL, headers, callback) {
   if (!headers.accept)
     headers.accept = 'application/json'
-  sendInternalRequestThen(res, 'DELETE', resourceURL, headers, null, function(clientRes) {
+  sendRequestThen(res, 'DELETE', resourceURL, headers, null, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, responseBody => {
       if (Math.floor(clientRes.statusCode / 100) == 2)
         callback(responseBody, clientRes)
@@ -231,10 +197,15 @@ function deleteInternalResourceThen(res, resourceURL, headers, callback) {
   })
 }
 
-function postToInternalResourceThen(res, resourceURL, headers, requestBody, callback) {
+// Kept for backwards compatibility
+function deleteInternalResourceThen(res, resourceURL, headers, callback) {
+  deleteResourceThen(res, resourceURL, headers, callback)
+}  
+
+function postToResourceThen(res, resourceURL, headers, requestBody, callback) {
   if (!headers.accept)
     headers.accept = 'application/json'
-  sendInternalRequestThen(res, 'POST', resourceURL, headers, requestBody, function(clientRes) {
+  sendRequestThen(res, 'POST', resourceURL, headers, requestBody, function(clientRes) {
     getClientResponseObject(res, clientRes, headers.host, responseBody => {
       if (Math.floor(clientRes.statusCode / 100) == 2)
         callback(responseBody, clientRes)
@@ -242,6 +213,11 @@ function postToInternalResourceThen(res, resourceURL, headers, requestBody, call
         respond({headers: {}}, res, clientRes.statusCode, {}, responseBody)
     })
   })
+}
+
+// Kept for backwards compatibility
+function postToInternalResourceThen(res, resourceURL, headers, requestBody, callback) {
+  postToResourceThen(res, resourceURL, headers, requestBody, callback)
 }
 
 function flowThroughHeaders(req) {
@@ -259,93 +235,29 @@ function flowThroughHeaders(req) {
   return headers
 }
 
+// Kept for backwards compatibility
 function sendExternalRequest(method, targetUrl, headers, body, callback) {
-  if (typeof headers == 'function') {
-    callback = headers
-    headers = {}
-  }
-  var id = generateIdentifier()
-  log('http-helper-functions:sendExternalRequest', `id: ${id} method: ${method} url: ${targetUrl}`)
-  body = setContentWithLengthAndType(headers, body)
-  var urlParts = url.parse(targetUrl)
-  var options = {
-    protocol: urlParts.protocol,
-    hostname: urlParts.hostname,
-    path: urlParts.path,
-    method: method,
-    headers: headers,
-    agent: keepAliveAgent(urlParts.protocol)
-  }
-  if (urlParts.port)
-    options.port = urlParts.port
-  var clientReq = (urlParts.protocol == 'https:' ? https : http).request(options, function(clientRes) {
-    log('http-helper-functions:sendExternalRequest', `id: ${id} received response after ${Date.now() - startTime} millisecs. method: ${method} url: ${targetUrl}`)
-    callback(null, clientRes)
-  })
-  var startTime = Date.now()
-  clientReq.setTimeout(300000, () => {
-    var msg = `socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`
-    log('http-helper-functions:sendExternalRequest', `id: ${id} socket timeout after ${Date.now() - startTime} millisecs targetUrl: ${targetUrl}`)
-    clientReq.abort()
-    callback(msg)
-  })
-  clientReq.on('error', function (err) {
-    log('http-helper-functions:sendExternalRequest', `id: ${id} error ${util.inspect(err)} targetUrl: ${targetUrl} options: options: ${util.inspect(options)}`)
-    callback(err)
-  })
-  if (body)
-    clientReq.write(body)
-  clientReq.end()
+  sendRequest(method, targetUrl, headers, body, callback)
 }
 
+// Kept for backwards compatibility
 function sendExternalRequestThen(res, method, targetUrl, headers, body, callback) {
-  if (typeof headers == 'function')
-    [callback, headers] = [headers, {}]
-  else if (headers == null)
-    headers = {}
-  sendExternalRequest(method, targetUrl, headers, body, function(err, clientRes) {
-    if (err) {
-      err.headers = headers
-      err.targetUrl = targetUrl
-      err.method = method
-      log('http-helper-functions:sendExternalRequestThen', `error ${err}`)
-      internalError(res, {msg: `unable to send external request. method: ${method} url: ${targetUrl}`, headers: headers, err: err})
-    } else
-      callback(clientRes)
-  })
+  sendRequestThen(res, method, targetUrl, headers, body, callback)
 }
 
+// Kept for backwards compatibility
 function withExternalResourceDo(res, resourceURL, headers, callback) {
-  sendExternalRequestThen(res, 'GET', resourceURL, headers, null, function(clientRes) {
-    getClientResponseObject(res, clientRes, null, body => {
-      if (clientRes.statusCode == 200)
-        callback(body, clientRes)
-      else
-        internalError(res, {msg: 'unable to retrieve internal resource', url: resourceURL, statusCode: clientRes.statusCode, body: body})
-    })
-  })
+  withResourceDo(res, resourceURL, headers, callback)
 }
 
+// Kept for backwards compatibility
 function patchExternalResourceThen(res, resourceURL, headers, patch, callback) {
-  sendInternalRequestThen(res, 'PATCH', resourceURL, headers, patch, function(clientRes) {
-    getClientResponseObject(res, clientRes, null, body => {
-      if (clientRes.statusCode == 200)
-        callback(body, clientRes)
-      else
-        internalError(res, {msg: 'unable to patch internal resource', url: resourceURL, statusCode: clientRes.statusCode, body: body})
-    })
-  })
+  patchResourceThen(res, resourceURL, headers, patch, callback)
 }
 
+// Kept for backwards compatibility
 function postToExternalResourceThen(res, resourceURL, headers, requestBody, callback) {
-  sendInternalRequestThen(res, 'POST', resourceURL, headers, requestBody, function(clientRes) {
-    getClientResponseObject(res, clientRes, null, responseBody => {
-      if (Math.floor(clientRes.statusCode / 100) == 2)
-        callback(responseBody, clientRes)
-      else
-        internalError(res, {msg: 'unable to post to internal resource', url: resourceURL, statusCode: clientRes.statusCode, responseBody: responseBody})
-    })
-  })
+  postToResourceThen(res, resourceURL, headers, requestBody, callback)
 }
 
 function getServerPostObject(req, res, callback) {
@@ -843,7 +755,7 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, token
     else {
       var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
       var body = `grant_type=client_credentials&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}`
-      sendExternalRequestThen(errorHandler, 'POST', tokenURL, headers, body, function(clientRes) {
+      sendRequestThen(errorHandler, 'POST', tokenURL, headers, body, function(clientRes) {
         getClientResponseBody(clientRes, function(resp_body) {
           if (clientRes.statusCode == 200) {
             token = JSON.parse(resp_body).access_token
@@ -1008,7 +920,7 @@ function redirectToAuthServer(res, refreshURL, scopes) {
 function getTokensFromCodeThen(errorHandler, code, clientID, clientSecret, tokenURL, callback) {
   var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
   var body = `grant_type=authorization_code&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}&code=${encodeURIComponent(code)}&redirect_uri=${OAUTH_CALLBACK_URL}&response_type=token`
-  sendExternalRequestThen(errorHandler, 'POST', tokenURL, headers, body, function(clientRes) {
+  sendRequestThen(errorHandler, 'POST', tokenURL, headers, body, function(clientRes) {
     getClientResponseBody(clientRes, function(resp_body) {
       if (clientRes.statusCode == 200) {
         let accessToken = JSON.parse(resp_body).access_token
@@ -1027,7 +939,7 @@ function getTokensFromCodeThen(errorHandler, code, clientID, clientSecret, token
 function refreshTokenFromIssuer(res, refreshToken, clientID, clientSecret, tokenURL, callback) {
   var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
   var body = `grant_type=refresh_token&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}&refresh_token=${refreshToken}`
-  sendExternalRequestThen(res, 'POST', tokenURL, headers, body, function(clientRes) {
+  sendRequestThen(res, 'POST', tokenURL, headers, body, function(clientRes) {
     getClientResponseBody(clientRes, function(resp_body) {
       if (clientRes.statusCode == 200) {
         let accessToken = JSON.parse(resp_body).access_token
@@ -1232,17 +1144,29 @@ exports.internalError = internalError
 exports.setStandardCreationProperties = setStandardCreationProperties
 exports.setStandardModificationProperties = setStandardModificationProperties
 exports.getUserFromToken = getUserFromToken
+// Kept for backwards compatibility
 exports.sendInternalRequestThen=sendInternalRequestThen
+// Kept for backwards compatibility
 exports.sendInternalRequest=sendInternalRequest
+exports.sendRequestThen=sendRequestThen
+exports.sendRequest=sendRequest
+exports.withResourceDo = withInternalResourceDo
+exports.patchResourceThen = patchInternalResourceThen
+exports.postToResourceThen = postToInternalResourceThen
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
-exports.getHostIPThen = getHostIPThen
+// Kept for backwards compatibility
 exports.sendExternalRequest = sendExternalRequest
+// Kept for backwards compatibility
 exports.sendExternalRequestThen = sendExternalRequestThen
 exports.flowThroughHeaders = flowThroughHeaders
+ // Kept for backwards compatibility
 exports.withInternalResourceDo = withInternalResourceDo
+// Kept for backwards compatibility
 exports.patchInternalResourceThen = patchInternalResourceThen
+// Kept for backwards compatibility
 exports.postToInternalResourceThen = postToInternalResourceThen
+// Kept for backwards compatibility
 exports.deleteInternalResourceThen = deleteInternalResourceThen
 exports.getClientResponseObject = getClientResponseObject
 exports.withValidClientToken = withValidClientToken
