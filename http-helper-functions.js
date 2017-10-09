@@ -847,9 +847,7 @@ function getPublicKeyForIssuer(errorHandler, issuer, callback) {
   })
 }
 
-function withPublicKeysForIssuerDo(errorHandler, token, callback) {
-  let claims = getClaimsFromToken(token)
-  let issuer = claims.iss
+function withPublicKeysForIssuerDo(errorHandler, issuer, callback) {
   if (issuer in PUBLIC_KEYS)
     callback(PUBLIC_KEYS[issuer])
   else
@@ -869,11 +867,17 @@ function finalize() {
   refreshPublicKeysForIssuersTimer.unref()
 }
 
-function isValidTokenFromIssuer(token, res, scopes, callback) {
-  if (token)
-    withPublicKeysForIssuerDo(res, token, (keys) => {
-      isValidToken(token, keys, scopes, callback)
+function isValidTokenFromIssuer(token, res, scopes, allowedIssuers, callback) {
+  if (token) {
+    let claims = getClaimsFromToken(token)
+    let issuer = claims.iss
+    if (allowedIssuers && Array.isArray(allowedIssuers) && !allowedIssuers.includes(issuer))
+      callback(false, {msg: `issuer ${issuer} not authorized`})
+    else
+      withPublicKeysForIssuerDo(res, issuer, (keys) => {
+        isValidToken(token, keys, scopes, callback)
     })
+  }
   else
     callback(false, {msg: 'no token provided'})
 }
@@ -1018,10 +1022,10 @@ function ifXsrfHeaderValidThen(req, res, callback) {
   }
 }
 
-function validateTokenThen(req, res, scopes, callback) {
+function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
   if (CHECK_IDENTITY) {
     let token = getTokenFromReq(req)
-    isValidTokenFromIssuer(token, res, scopes, (isValid, reason) => {
+    isValidTokenFromIssuer(token, res, scopes, allowedIssuers, (isValid, reason) => {
       if (isValid) { 
         // valid token in the authorization header. 
         // if this is a modification request on the host for browsers
