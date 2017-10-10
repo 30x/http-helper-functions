@@ -131,8 +131,8 @@ function sendRequestThen(res, method, resourceURL, headers, body, callback) {
         internalRouterHost: process.env.INTERNAL_SY_ROUTER_HOST,
         internalRouterPort: INTERNAL_SY_ROUTER_PORT
       }
-      log('http-helper-functions:sendRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL} headers ${util.inspect(headers)}`)
-      internalError(res, {msg: 'unable to send  request', err: err, method: method, host: headers.host, path: pathRelativeURL, headers: headers})
+      log('http-helper-functions:sendRequestThen', `error ${err} method ${method} host: ${headers.host} path ${pathRelativeURL}}`)
+      internalError(res, {msg: 'unable to send  request', err: err, method: method, host: headers.host, path: pathRelativeURL})
     } else
       callback(clientRes)
   })
@@ -1034,7 +1034,7 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
           // If there is an x-client-authorization token it has to be good too 
           let clientToken = getToken(req.headers['x-client-authorization'])
           if (clientToken)
-            isValidTokenFromIssuer(clientToken, res, scopes, (isValid, reason) => {
+            isValidTokenFromIssuer(clientToken, res, scopes, allowedIssuers, (isValid, reason) => {
               if (isValid) // valid token in the authorization header. Good to go
                 callback(true)
               else
@@ -1051,7 +1051,7 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
         } else {
           let clientToken = getToken(req.headers['x-client-authorization'])
           if (!req.headers.authorization && clientToken)
-            isValidTokenFromIssuer(clientToken, res, scopes, (isValid, reason) => {
+            isValidTokenFromIssuer(clientToken, res, scopes, allowedIssuers, (isValid, reason) => {
               if (isValid) { 
                 // valid token in the x-client-authorization header.
                 // Remove the invalid token from the req headers, 
@@ -1074,7 +1074,7 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
   
   function validate_html_get() {
     getSSOCookies(req, (accessToken, refreshToken) => {
-      isValidTokenFromIssuer(accessToken, res, scopes, (isValid, reason) => {
+      isValidTokenFromIssuer(accessToken, res, scopes, allowedIssuers, (isValid, reason) => {
         if (isValid) { // valid token in the cookie. Good to go
           req.headers.authorization = `Bearer ${accessToken}`
           callback(true)
@@ -1085,7 +1085,7 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
                 req.headers.authorization = `Bearer ${accessToken}`
                 let setCookies = [`${SSO_ACCESS_TOKEN_COOKIE}=${accessToken}`, `${SSO_REFRESH_TOKEN_COOKIE}=${refreshToken}`]
                 res.setHeader('set-cookie', setCookies)
-                isValidTokenFromIssuer(accessToken, res, scopes, (isValid, reason) => {
+                isValidTokenFromIssuer(accessToken, res, scopes, allowedIssuers, (isValid, reason) => {
                   if (isValid) // valid token in the refreshed token. Good to go
                     callback(true)
                   else 
