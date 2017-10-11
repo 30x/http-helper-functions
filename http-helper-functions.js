@@ -141,12 +141,12 @@ function sendRequestThen(res, method, resourceURL, headers, body, callback) {
 // Kept for backwards compatibility
 function sendInternalRequest(method, resourceURL, headers, body, callback) {
   sendRequest(method, resourceURL, headers, body, callback)
-}  
+}
 
 // Kept for backwards compatibility
 function sendInternalRequestThen(res, method, resourceURL, headers, body, callback) {
   sendRequestThen(res, method, resourceURL, headers, body, callback)
-}  
+}
 
 function withResourceDo(res, resourceURL, headers, callback) {
   if (!headers.accept)
@@ -164,7 +164,7 @@ function withResourceDo(res, resourceURL, headers, callback) {
 // Kept for backwards compatibility
 function withInternalResourceDo(res, resourceURL, headers, callback) {
   withResourceDo(res, resourceURL, headers, callback)
-}  
+}
 
 function patchResourceThen(res, resourceURL, headers, patch, callback) {
   if (!headers.accept)
@@ -182,7 +182,7 @@ function patchResourceThen(res, resourceURL, headers, patch, callback) {
 // Kept for backwards compatibility
 function patchInternalResourceThen(res, resourceURL, headers, patch, callback) {
   patchResourceThen(res, resourceURL, headers, patch, callback)
-}  
+}
 
 function deleteResourceThen(res, resourceURL, headers, callback) {
   if (!headers.accept)
@@ -200,7 +200,7 @@ function deleteResourceThen(res, resourceURL, headers, callback) {
 // Kept for backwards compatibility
 function deleteInternalResourceThen(res, resourceURL, headers, callback) {
   deleteResourceThen(res, resourceURL, headers, callback)
-}  
+}
 
 function postToResourceThen(res, resourceURL, headers, requestBody, callback) {
   if (!headers.accept)
@@ -321,7 +321,7 @@ function getClientResponseObject(errorHandler, res, host, callback) {
         }
         if (jso)
           callback(internalizeURLs(jso, host, contentType))
-      } 
+      }
     else
       internalError(errorHandler, {msg: 'response not JSON', headers: res.headers, body: body})
   })
@@ -369,7 +369,7 @@ function getUser(auth) {
 
 function getTokenFromReq(req) {
   let token = req.__xxx_token__
-  if (token === undefined) {  
+  if (token === undefined) {
     token = req.__xxx_token__ = getToken(req.headers.authorization);
   }
   return token
@@ -381,7 +381,7 @@ function getClaimsFromReq(req) {
     let token = getTokenFromReq(req);
     claims = req.__xxx_claims__ = getClaimsFromToken(token)
   }
-  return claims    
+  return claims
 }
 
 function getUserFromReq(req) {
@@ -796,14 +796,14 @@ function isValidToken(token, publicKeys, scopes, callback) {
       else
         if (scopes && scopes.length > 0)
           if (claims && claims.scope && claims.scope.length > 0) {
-            let missingScopes = scopes.filter(sc => !claims.scope.includes(sc)) 
+            let missingScopes = scopes.filter(sc => !claims.scope.includes(sc))
             if (missingScopes.length > 0)
               return callback(false, {msg: 'required scopes missing from token', missingScopes: missingScopes, claims: claims})
             else
               return callback(true)
           } else
             return callback(false, {msg: 'no scopes in token', claims: claims})
-        else  
+        else
           return callback(true)
   }
   callback(false, {msg: 'token signature did not verify'})
@@ -870,6 +870,12 @@ function finalize() {
 function isValidTokenFromIssuer(token, res, scopes, allowedIssuers, callback) {
   if (token) {
     let claims = getClaimsFromToken(token)
+
+    if (!claims) {
+        callback(false, {msg: `invalid bearer token`});
+        return;
+    }
+
     let issuer = claims.iss
     if (allowedIssuers && Array.isArray(allowedIssuers) && !allowedIssuers.includes(issuer))
       callback(false, {msg: `issuer ${issuer} not authorized`})
@@ -917,10 +923,10 @@ function redirectToAuthServer(res, refreshURL, scopes) {
   let body = `<head><meta http-equiv="refresh" content="0; url=${redirectURL}"></head>\n`
       + `<a href="${redirectURL}">${redirectURL}</a>`
   res.writeHead(401, { location: redirectURL })
-  res.end(body)  
+  res.end(body)
 }
 
-// 
+//
 function getTokensFromCodeThen(errorHandler, code, clientID, clientSecret, tokenURL, callback) {
   var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
   var body = `grant_type=authorization_code&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}&code=${encodeURIComponent(code)}&redirect_uri=${OAUTH_CALLBACK_URL}&response_type=token`
@@ -939,7 +945,7 @@ function getTokensFromCodeThen(errorHandler, code, clientID, clientSecret, token
   })
 }
 
-// 
+//
 function refreshTokenFromIssuer(res, refreshToken, clientID, clientSecret, tokenURL, callback) {
   var headers = {'content-type': 'application/x-www-form-urlencoded;charset=utf-8', accept: 'application/json;charset=utf-8'}
   var body = `grant_type=refresh_token&client_id=${encodeURIComponent(clientID)}&client_secret=${encodeURIComponent(clientSecret)}&refresh_token=${refreshToken}`
@@ -961,8 +967,8 @@ function refreshTokenFromIssuer(res, refreshToken, clientID, clientSecret, token
 /**
  * Handles the redirect from the Auth Server back to a Resource Server
  * Trades a code for an auth token
- * @param {*} req 
- * @param {*} res 
+ * @param {*} req
+ * @param {*} res
  */
 function authorize(req, res) {
   let parsedURL = url.parse(req.url)
@@ -996,7 +1002,7 @@ function ifXsrfHeaderValidThen(req, res, callback) {
   let safeMethod = SAFE_METHODS.includes(req.method)
   if (notBrowserHost || safeMethod) {
     callback()
-  } else {         
+  } else {
     let xsrfToken = req.headers.xsrfToken;
     if (xsrfToken) {
       let parts = xsrfToken.split(':')
@@ -1011,10 +1017,10 @@ function ifXsrfHeaderValidThen(req, res, callback) {
             rLib.forbidden(res, {msg: 'invalid xsrf token'})
           }
         } else {
-          rLib.forbidden(res, {msg: 'xsrf token expired'})                  
+          rLib.forbidden(res, {msg: 'xsrf token expired'})
         }
       } else {
-        rLib.forbidden(res, {msg: 'invalid xsrf token'})        
+        rLib.forbidden(res, {msg: 'invalid xsrf token'})
       }
     } else {
       rLib.forbidden(res, {msg: 'missing xsrf token'})
@@ -1026,12 +1032,12 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
   if (CHECK_IDENTITY) {
     let token = getTokenFromReq(req)
     isValidTokenFromIssuer(token, res, scopes, allowedIssuers, (isValid, reason) => {
-      if (isValid) { 
-        // valid token in the authorization header. 
+      if (isValid) {
+        // valid token in the authorization header.
         // if this is a modification request on the host for browsers
         // then the xsrf token must be present and correct
         ifXsrfHeaderValidThen(req, res, () => {
-          // If there is an x-client-authorization token it has to be good too 
+          // If there is an x-client-authorization token it has to be good too
           let clientToken = getToken(req.headers['x-client-authorization'])
           if (clientToken)
             isValidTokenFromIssuer(clientToken, res, scopes, allowedIssuers, (isValid, reason) => {
@@ -1052,15 +1058,15 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
           let clientToken = getToken(req.headers['x-client-authorization'])
           if (!req.headers.authorization && clientToken)
             isValidTokenFromIssuer(clientToken, res, scopes, allowedIssuers, (isValid, reason) => {
-              if (isValid) { 
+              if (isValid) {
                 // valid token in the x-client-authorization header.
-                // Remove the invalid token from the req headers, 
+                // Remove the invalid token from the req headers,
                 // so the caller knows only the 'x-client-authorization' is good
                 delete req.headers.authorization
                 callback(true)
               } else
-                callback(isValid, reason)  
-            })            
+                callback(isValid, reason)
+            })
           else
             callback(isValid, reason)
         }
@@ -1071,7 +1077,7 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
       callback(true)
     else
       callback(false, {msg: 'no token provided'})
-  
+
   function validate_html_get() {
     getSSOCookies(req, (accessToken, refreshToken) => {
       isValidTokenFromIssuer(accessToken, res, scopes, allowedIssuers, (isValid, reason) => {
@@ -1088,14 +1094,14 @@ function validateTokenThen(req, res, scopes, allowedIssuers, callback) {
                 isValidTokenFromIssuer(accessToken, res, scopes, allowedIssuers, (isValid, reason) => {
                   if (isValid) // valid token in the refreshed token. Good to go
                     callback(true)
-                  else 
+                  else
                     redirectToAuthServer(res, req.url, scopes)
                 })
               } else
                 redirectToAuthServer(res, req.url, scopes)
             })
-          else 
-            redirectToAuthServer(res, req.url, scopes) 
+          else
+            redirectToAuthServer(res, req.url, scopes)
       })
     })
   }
