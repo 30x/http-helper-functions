@@ -28,6 +28,10 @@ const BROWSER_ACCESSIBLE_HOST = process.env.BROWSER_ACCESSIBLE_HOST
 const XSRF_SECRET = process.env.XSRF_SECRET
 const XSRF_TOKEN_TIMEOUT = process.env.XSRF_SECRET || 2*60*60*1000 // 2 hrs
 
+// support MAX_RECORD_SIZE env variable; default to 1e6 (1MB) if the input in not a number
+let configuredMaxRecordSize = parseInt(process.env.MAX_RECORD_SIZE, 10)
+const MAX_RECORD_SIZE = isNaN(configuredMaxRecordSize) ? 1e6 : configuredMaxRecordSize
+
 function log(functionName, text) {
   console.log(new Date().toISOString(), process.env.COMPONENT_NAME, functionName, text)
 }
@@ -263,7 +267,7 @@ function postToExternalResourceThen(res, resourceURL, headers, requestBody, call
 function getServerPostObject(req, res, callback) {
   var body = ''
   req.on('data', function (data) {
-    if (body.length + data.length > 1e6)
+    if (body.length + data.length > MAX_RECORD_SIZE)
       return req.connection.destroy()
     body += data
   })
@@ -288,7 +292,7 @@ function getServerPostObject(req, res, callback) {
 function getServerPostBuffer(req, callback) {
   var body = []
   req.on('data', function (data) {
-    if (body.reduce((total, item) => total + item.length, 0) + data.length > 1e6)
+    if (body.reduce((total, item) => total + item.length, 0) + data.length > MAX_RECORD_SIZE)
       return req.connection.destroy()
     body.push(data)
   })
