@@ -273,7 +273,7 @@ function getServerPostObject(req, res, callback) {
   })
   req.on('end', function () {
     var contentType = req.headers['content-type']
-    if (contentType === undefined || (contentType.startsWith('application/', 0) > -1 && contentType.endsWith('json'))) {
+    if (contentType === undefined || (contentType.startsWith('application/', 0) && contentType.endsWith('json'))) {
       var jso
       try {
         jso = JSON.parse(body)
@@ -320,14 +320,14 @@ function getClientResponseObject(errorHandler, res, host, callback) {
           jso = JSON.parse(body)
         }
         catch (err) {
-          log('http-helper-functions:getClientResponseObject', body)
+          log('http-helper-functions:getClientResponseObject', `invalid JSON: ${err.message} body: ${body}`)
           internalError(errorHandler, {msg: 'invalid JSON in response', err: err, body: body} )
         }
-        if (jso)
+        if (jso !== undefined)
           callback(internalizeURLs(jso, host, contentType))
       }
     else
-      internalError(errorHandler, {msg: 'response not JSON', headers: res.headers, body: body})
+      internalError(errorHandler, {msg: 'response content-type not JSON', headers: res.headers, body: body})
   })
 }
 
@@ -1130,6 +1130,43 @@ function getContext(req) {
   return context
 }
 
+function forEachDoAsyncByChunkThen(elements, itemCallback, finalCallback, chunkSize=10) {
+  let totalCount = elements.length
+  if (totalCount == 0)
+    finalCallback()
+  else
+    _forEachDoAsyncByChunkThen(0)
+  
+  function _forEachDoAsyncByChunkThen(chunk) {
+    let limit = Math.min(totalCount, (chunk + 1) * chunkSize)
+    let start = chunk * chunkSize
+    let count = limit - start
+    for (let i = start; i < limit; i++)
+      itemCallback(doneOne, elements[i], i, chunk)
+    function doneOne() {
+      if (--count == 0)
+        if (limit < totalCount)
+          _forEachDoAsyncByChunkThen(chunk + 1)
+        else
+          finalCallback()
+    }
+  }
+}
+
+function forEachDoAsyncThen(elements, itemCallback, finalCallback) {
+  let totalCount = elements.length
+  if (totalCount == 0)
+    return finalCallback()
+  else {
+    let count = totalCount
+    for (let i = 0; i < totalCount; i++) 
+      itemCallback(() => {
+        if (--count == 0)
+          finalCallback()
+      }, elements[i], i)
+    }
+}
+
 exports.getEmailFromToken = getEmailFromToken
 exports.getEmail = getEmail
 exports.getServerPostObject = getServerPostObject
@@ -1167,6 +1204,7 @@ exports.sendRequest=sendRequest
 exports.withResourceDo = withInternalResourceDo
 exports.patchResourceThen = patchInternalResourceThen
 exports.postToResourceThen = postToInternalResourceThen
+exports.deleteResourceThen = deleteResourceThen
 exports.toHTML=toHTML
 exports.uuid4 = uuid4
 // Kept for backwards compatibility
@@ -1193,6 +1231,8 @@ exports.withExternalResourceDo = withExternalResourceDo
 exports.patchExternalResourceThen = patchExternalResourceThen
 exports.postToExternalResourceThen = postToExternalResourceThen
 exports.finalize=finalize
+exports.forEachDoAsyncByChunkThen = forEachDoAsyncByChunkThen
+exports.forEachDoAsyncThen = forEachDoAsyncThen
 
 // exported for testing only
 exports.isValidTokenFromIssuer = isValidTokenFromIssuer
