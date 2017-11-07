@@ -79,7 +79,8 @@ function sendRequest(method, resourceURL, headers, body, callback) {
   let protocol = parsedURL.protocol == null ? INTERNAL_PROTOCOL : parsedURL.protocol
   let pathRelativeURL = parsedURL.path
   var id = generateIdentifier()
-  log('http-helper-functions:sendRequest', `id: ${id} method: ${method} hostname: ${process.env.INTERNAL_SY_ROUTER_HOST}${INTERNAL_SY_ROUTER_PORT ? `:${INTERNAL_SY_ROUTER_PORT}` : ''} url: ${pathRelativeURL}`)
+  let msgPrefix = `id: ${id} method: ${method} hostname: ${hostname}${port ? `:${port}` : ''} url: ${pathRelativeURL}`
+  log('http-helper-functions:sendRequest', `${msgPrefix} request`)
   body = setContentWithLengthAndType(headers, body)
   if ('host' in headers) {
     headers = Object.assign({}, headers)
@@ -97,21 +98,15 @@ function sendRequest(method, resourceURL, headers, body, callback) {
     options.port = port
   var startTime = Date.now()
   var clientReq = (protocol == 'https:' ? https : http).request(options, function(clientRes) {
-    log('http-helper-functions:sendRequest', `id: ${id} received response after ${Date.now() - startTime} millisecs. method: ${method} hostname: ${hostname}${port ? `:${port}` : ''} url: ${pathRelativeURL}`)
+    log('http-helper-functions:sendRequest', `${msgPrefix} response after ${Date.now() - startTime} millisecs`)
     callback(null, clientRes)
   })
   clientReq.setTimeout(300000, () => {
-    var msgText = `id: ${id} socket timeout after ${Date.now() - startTime} millisecs pathRelativeURL: ${pathRelativeURL}`
-    var msg = {msg: 'socket timeout', msgText: msgText, id: id, timePeriod: Date.now() - startTime, pathRelativeURL: pathRelativeURL}
-    log('http-helper-functions:sendRequest', msgText)
     clientReq.abort()
-    callback(msg)
+    // Node will also generate an error, which will be logged below and the callback executed 
   })
   clientReq.on('error', function (err) {
-    var the_options = Object.assign({}, options)
-    delete the_options.agent
-    let targetUrl = `${options.hostname}${options.port ? `:${options.port}` : ''}${options.path}`
-    log('http-helper-functions:sendRequest', `id: ${id} error ${err} targetUrl: ${targetUrl}`)
+    log('http-helper-functions:sendRequest', `${msgPrefix} error ${err}`)
     callback(err)
   })
   if (body)
@@ -321,10 +316,9 @@ function getClientResponseObject(errorHandler, res, host, callback) {
         }
         catch (err) {
           log('http-helper-functions:getClientResponseObject', `invalid JSON: ${err.message} body: ${body}`)
-          internalError(errorHandler, {msg: 'invalid JSON in response', err: err, body: body} )
+          return internalError(errorHandler, {msg: 'invalid JSON in response', err: err, body: body} )
         }
-        if (jso !== undefined)
-          callback(internalizeURLs(jso, host, contentType))
+        callback(internalizeURLs(jso, host, contentType))
       }
     else
       internalError(errorHandler, {msg: 'response content-type not JSON', headers: res.headers, body: body})
@@ -1124,7 +1118,7 @@ function getContext(req) {
   var context = req.context
   if (!context)
     req.context = context = {
-      user: getUser(req.headers.authorization),
+      user: getUserFromReq(req),
       'request-id': req.headers['x-request-id']
     }
   return context
