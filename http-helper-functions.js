@@ -31,6 +31,7 @@ const XSRF_TOKEN_TIMEOUT = process.env.XSRF_SECRET || 2*60*60*1000 // 2 hrs
 // support MAX_RECORD_SIZE env variable; default to 1e6 (1MB) if the input in not a number
 let configuredMaxRecordSize = parseInt(process.env.MAX_RECORD_SIZE, 10)
 const MAX_RECORD_SIZE = isNaN(configuredMaxRecordSize) ? 1e6 : configuredMaxRecordSize
+const CLIENT_REQUEST_TIMEOUT = isNaN(parseInt(process.env.CLIENT_REQUEST_TIMEOUT, 10)) ? 60 * 1000 : parseInt(process.env.CLIENT_REQUEST_TIMEOUT, 10)
 
 function log(functionName, text) {
   console.log(new Date().toISOString(), process.env.COMPONENT_NAME, functionName, text)
@@ -92,7 +93,7 @@ function sendRequest(method, resourceURL, headers, body, callback) {
     path: pathRelativeURL,
     method: method,
     headers: headers,
-    agent: keepAliveAgent(protocol)
+//    agent: keepAliveAgent(protocol)
   }
   if (port)
     options.port = port
@@ -101,7 +102,7 @@ function sendRequest(method, resourceURL, headers, body, callback) {
     log('http-helper-functions:sendRequest', `${msgPrefix} response after ${Date.now() - startTime} millisecs`)
     callback(null, clientRes)
   })
-  clientReq.setTimeout(300000, () => {
+  clientReq.setTimeout(CLIENT_REQUEST_TIMEOUT, () => {
     clientReq.abort()
     // Node will also generate an error, which will be logged below and the callback executed 
   })
