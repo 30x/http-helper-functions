@@ -451,7 +451,19 @@ function duplicate(res, err) {
   res.end(body)
 }
 
-function found(req, res, body, etag, contentLocation, contentType) {
+/**
+ * 
+ * @param {http.Request} req 
+ * @param {http.Response} res 
+ * @param {string, Buffer or object} body 
+ * @param {string} contentLocation 
+ * @param {string} etag 
+ * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the 
+ *                            body is a JSON-PATCH, then this will need to be refected in the media type if
+ *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
+ *                            not the media type that it will be serialized to, but we use the same values for both
+ */
+function found(req, res, body, contentLocation, etag, bodyType) {
   var headers = {}
   if (contentLocation !== undefined)
     headers['Content-Location'] = externalizeURLs(contentLocation, req.headers.host)
@@ -459,38 +471,59 @@ function found(req, res, body, etag, contentLocation, contentType) {
     headers['Content-Location'] = req.url //todo - handle case where req.url includes http://authority
   if (etag !== undefined)
     headers['Etag'] = etag
-  respond(req, res, 200, headers, body, contentType)
+  respond(req, res, 200, headers, body)
 }
 
-function created(req, res, body, location, etag, contentType) {
+/**
+ * 
+ * @param {http.Request} req 
+ * @param {http.Response} res 
+ * @param {string, Buffer or object} body 
+ * @param {string} location 
+ * @param {string} etag 
+ * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the 
+ *                            body is a JSON-PATCH, then this will need to be refected in the media type if
+ *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
+ *                            not the media type that it will be serialized to, but we use the same values for both
+ */
+function created(req, res, body, location, etag, bodyType) {
   var headers =  {}
   if (location !== undefined)
     headers['Location'] = externalizeURLs(location, req.headers.host)
   if (etag !== undefined)
     headers['Etag'] = etag
-  respond(req, res, 201, headers, body, contentType)
+  respond(req, res, 201, headers, body, bodyType)
 }
 
-function respond(req, res, status, headers, body, contentType) {
+/**
+ * 
+ * @param {http.Request} req 
+ * @param {http.Response} res 
+ * @param {integer} status 
+ * @param {object} headers 
+ * @param {string, Buffer or object} body 
+ * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the 
+ *                            body is a JSON-PATCH, then this will need to be refected in the media type if
+ *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
+ *                            not the media type that it will be serialized to, but we use the same values for both
+ */
+function respond(req, res, status, headers, body, bodyType) {
   if (body !== undefined) {
-    // If contentType is provided, body is assumed to be the representation of the resource, ready to be sent in the response. If
-    // contentType is not provided, the body is assumed to be the state of the resource in Javascript objects. As such, it is
-    // subject to content negotiation of the response format.
-    // ToDo: make the code match this comment or change the comment
-    var wantsHTML = req.headers.accept !== undefined && req.headers.accept.startsWith('text/html')
-    if (!('content-type' in headers))
-      headers['content-type'] = contentType ? contentType : wantsHTML ? 'text/html' : 'application/json'
-    externalizeURLs(body, req.headers.host)
-    var contentType = headers['content-type']
-    var isJson = contentType.startsWith('application/') && contentType.endsWith('json')
-    body = body instanceof Buffer ? body : contentType == 'text/html' ? toHTML(body) : contentType == 'text/plain' ? body.toString() : isJson ? JSON.stringify(body) : body.toString()
+    if (!(body instanceof Buffer)) {
+      let mediaRange = 'application/json'
+      let accept = req.headers.accept
+      if (accept != null)
+        mediaRange = accept.split(';')[0]
+      let wantsHTML = mediaRange.startsWith('text/html')
+      let wantsJson = mediaRange.startsWith('application/json')
+      headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? (bodyType ? bodyType : 'application/json') : text.plain
+      externalizeURLs(body, req.headers.host)
+      body = wantsHTML ? toHTML(body) : wantsJson ? JSON.stringify(body) : body.toString()
+    }
     headers['Content-Length'] = Buffer.byteLength(body)
-    res.writeHead(status, headers)
-    res.end(body)
-  } else {
-    res.writeHead(status, headers)
-    res.end()
   }
+  res.writeHead(status, headers)
+  res.end(body)
 }
 
 const subdelims = [33, 36, 38, 39, 40, 41, // "!" / "$" / "&" / "'" / "(" / ")"
@@ -1173,6 +1206,7 @@ exports.notFound = notFound
 exports.badRequest = badRequest
 exports.duplicate = duplicate
 exports.found = found
+exports.ok = found
 exports.created = created
 exports.respond = respond
 exports.internalizeURL = internalizeURL
