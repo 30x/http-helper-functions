@@ -11,6 +11,7 @@ const httpKeepAliveAgent = new http.Agent({ keepAlive: true })
 const httpsKeepAliveAgent = new https.Agent({ keepAlive: true })
 const querystring = require('querystring')
 const fs = require('fs')
+const path = require('path')
 
 const INTERNAL_SCHEME = process.env.INTERNAL_SCHEME || 'http'
 const INTERNAL_PROTOCOL = INTERNAL_SCHEME + ':'
@@ -276,12 +277,12 @@ function getServerPostObject(req, res, callback) {
       }
       catch (err) {
         log('http-helper-functions:getServerPostObject', `invalid JSON: ${err.message} body: ${body}`)
-        badRequest(res, `invalid JSON: ${err.message} body: ${body}` )
+        badRequest(req, res, `invalid JSON: ${err.message} body: ${body}` )
       }
       if (jso)
         callback(internalizeURLs(jso, req.headers.host, contentType))
     } else
-      badRequest(res, 'input must be JSON')
+      badRequest(req, res, 'input must be JSON')
   })
 }
 
@@ -397,8 +398,8 @@ function getScopes(auth) {
   return claims !== null && claims !== undefined && claims.scope ? claims.scope : []
 }
 
-function methodNotAllowed(req, res, allow) {
-  var body = 'Method not allowed. request-target: ' + req.url + ' method: ' + req.method + '\n'
+function methodNotAllowed(req, res, allow, body) {
+  body = body || {msg: 'Method not allowed'}
   body = JSON.stringify(body)
   res.writeHead(405, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body),
@@ -407,7 +408,15 @@ function methodNotAllowed(req, res, allow) {
 }
 
 function notFound(req, res, body) {
-  body = body || `Not Found. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method}\n`
+  body = body || (req ? {
+    msg: 'Not Found',
+    component: process.env.COMPONENT_NAME,
+    url: req.url,
+    host: req.headers.host
+  } : {
+    msg: 'Not Found',
+    component: process.env.COMPONENT_NAME
+  })
   body = JSON.stringify(body)
   res.writeHead(404, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
@@ -415,7 +424,17 @@ function notFound(req, res, body) {
 }
 
 function forbidden(req, res, body) {
-  body = body || `Forbidden. component: ${process.env.COMPONENT_NAME} request-target: //${req.headers.host}${req.url} method: ${req.method} user: ${getUser(req.headers.authorization)}\n`
+  body = body || (req ? {
+    msg: 'Forbidden',
+    component: process.env.COMPONENT_NAME,
+    url: req.url, 
+    host: req.headers.host,
+    method: req.method,
+    user: getUserFromReq(req)
+  } : {
+    msg: 'Forbidden',
+    component: process.env.COMPONENT_NAME
+  })
   body = JSON.stringify(body)
   res.writeHead(403, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
@@ -423,14 +442,23 @@ function forbidden(req, res, body) {
 }
 
 function unauthorized(req, res, body) {
-  body = body || 'Unauthorized. request-target: ' + req.url
+  body = body || (req ? {
+    msg: 'Unauthorized',
+    url: req.url,
+    host: req.headers.host
+  } : {msg: 'Unauthorized'})
   body = typeof body == 'object' ? JSON.stringify(body) : body
   res.writeHead(401, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
 }
 
-function badRequest(res, err) {
+function badRequest(req, res, err) {
+  err = err || (req ? {
+    msg: 'bad request',
+    url: req.url,
+    host: req.headers.host
+  } : {msg: 'bad request'})
   var body = JSON.stringify(err)
   res.writeHead(400, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
@@ -438,18 +466,21 @@ function badRequest(res, err) {
 }
 
 function internalError(res, err) {
+  err = err || {msg: 'internal error'}
   var body = JSON.stringify(err)
   res.writeHead(500, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
-}
+}   
 
 function duplicate(res, err) {
+  err = err || {msg: 'duplicate'}
   var body = JSON.stringify(err)
   res.writeHead(409, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
-}
+}   
+
 
 /**
  * 
@@ -466,12 +497,13 @@ function duplicate(res, err) {
 function found(req, res, body, contentLocation, etag, bodyType) {
   var headers = {}
   if (contentLocation !== undefined)
-    headers['Content-Location'] = externalizeURLs(contentLocation, req.headers.host)
+    headers['Content-Location'] = contentLocation
   else
-    headers['Content-Location'] = req.url //todo - handle case where req.url includes http://authority
+    if (req)
+      headers['Content-Location'] = req.url
   if (etag !== undefined)
     headers['Etag'] = etag
-  respond(req, res, 200, headers, body)
+  respond(req, res, 200, headers, body, bodyType)
 }
 
 /**
@@ -489,7 +521,7 @@ function found(req, res, body, contentLocation, etag, bodyType) {
 function created(req, res, body, location, etag, bodyType) {
   var headers =  {}
   if (location !== undefined)
-    headers['Location'] = externalizeURLs(location, req.headers.host)
+    headers['Location'] = location
   if (etag !== undefined)
     headers['Etag'] = etag
   respond(req, res, 201, headers, body, bodyType)
@@ -507,17 +539,16 @@ function created(req, res, body, location, etag, bodyType) {
  *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
  *                            not the media type that it will be serialized to, but we use the same values for both
  */
-function respond(req, res, status, headers, body, bodyType) {
+function respond(req, res, status, headers, body, bodyType='application/json') {
   if (body !== undefined) {
     if (!(body instanceof Buffer)) {
       let mediaRange = 'application/json'
-      let accept = req.headers.accept
+      let accept = req ? req.headers.accept : null
       if (accept != null)
         mediaRange = accept.split(';')[0]
       let wantsHTML = mediaRange.startsWith('text/html')
       let wantsJson = mediaRange.startsWith('application/json')
-      headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? (bodyType ? bodyType : 'application/json') : text.plain
-      externalizeURLs(body, req.headers.host)
+      headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? bodyType : text.plain
       body = wantsHTML ? toHTML(body) : wantsJson ? JSON.stringify(body) : body.toString()
     }
     headers['Content-Length'] = Buffer.byteLength(body)
@@ -525,6 +556,14 @@ function respond(req, res, status, headers, body, bodyType) {
   res.writeHead(status, headers)
   res.end(body)
 }
+
+function preconditionFailed(req, res, err) {
+  err = err || {msg: 'precondition failed'}
+  var body = JSON.stringify(err)
+  res.writeHead(412, {'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(body)})
+  res.end(body)
+}   
 
 const subdelims = [33, 36, 38, 39, 40, 41, // "!" / "$" / "&" / "'" / "(" / ")"
                    42, 43, 44, 59, 61 ]  // / "*" / "+" / "," / ";" / "="
@@ -638,24 +677,6 @@ function internalizeURLs(jsObject, authority, contentType) {
   return jsObject
 }
 
-function externalizeURLs(jsObject, authority) {
-  //add http://authority or https://authority to the front of any urls
-  if (Array.isArray(jsObject))
-    for (var i = 0; i < jsObject.length; i++)
-      jsObject[i] = externalizeURLs(jsObject[i], authority)
-  else if (typeof jsObject == 'object')
-    for(var key in jsObject) {
-      if (jsObject.hasOwnProperty(key))
-        jsObject[key] = externalizeURLs(jsObject[key], authority)
-    }
-  else if (typeof jsObject == 'string')
-    if (jsObject.startsWith(INTERNALURLPREFIX)) {
-      var prefix = '' // `//${authority}`
-      return prefix + jsObject.substring(INTERNALURLPREFIX.length)
-    }
-  return jsObject
-}
-
 function mergePatch(target, patch) {
   if (typeof patch == 'object' && !Array.isArray(patch)) {
     if (typeof target != 'object')
@@ -685,14 +706,14 @@ function applyPatch(reqHeaders, res, target, patch, callback) {
         var patchedDoc = jsonpatch.apply_patch(target, patch)
       }
       catch(err) {
-        return badRequest(res, `err: ${err} patch: ${util.inspect(patch)}`)
+        return badRequest(null, res, `err: ${err} patch: ${util.inspect(patch)}`)
       }
       callback(patchedDoc, reqHeaders['content-type'])
     }
     else
-      badRequest(res, `unknown PATCH content-type: ${reqHeaders['content-type']}`)
+      badRequest(null, res, `unknown PATCH content-type: ${reqHeaders['content-type']}`)
   else
-    badRequest(res, 'PATCH headers missing content-type for patch')
+    badRequest(null, res, 'PATCH headers missing content-type for patch')
 }
 
 function setStandardCreationProperties(req, resource, user) {
@@ -746,7 +767,7 @@ function toHTML(body) {
 // The following function adapted from https://github.com/broofa/node-uuid4 under MIT License
 // Copyright (c) 2010-2012 Robert Kieffer
 var toHex = Array(256)
-for (var val = 0; val < 256; val++)
+for (var val = 0; val < 256; val++) 
   toHex[val] = (val + 0x100).toString(16).substr(1)
 function uuid4() {
   var buf = randomBytes(16)
@@ -763,6 +784,25 @@ function uuid4() {
           toHex[buf[i++]] + toHex[buf[i++]]
 }
 // End of section of code adapted from https://github.com/broofa/node-uuid4 under MIT License
+
+const words = fs.readFileSync(path.join(__dirname, '65536words'), 'utf-8').split('\n')
+function uuidw(bytesOfRandom = 16, numberOfWords = 2) {
+  var buf = randomBytes(bytesOfRandom), rslt = '', bytesOfWords = numberOfWords*2
+  if (bytesOfWords > bytesOfRandom)
+    throw Error('numberOfWords * 2 must be <= bytesOfRandom')
+  for (let i = 0; i < bytesOfWords; i+=2) {
+    if (i>0)
+      rslt += '-'
+    rslt +=  words[buf[i] * 256 + buf[i+1]]
+  }
+  if (bytesOfRandom > bytesOfWords) {
+    if (numberOfWords > 0)
+      rslt += '-'
+    for (let i = bytesOfWords; i < bytesOfRandom; i++)
+      rslt += toHex[buf[i]]
+  }
+  return rslt
+}
 
 function errorHandler(func) {
   var statusCode
@@ -795,7 +835,7 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, token
             callback(token)
           } else {
             log('withValidClientToken', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)}`)
-            badRequest(errorHandler, {msg: 'unable to retrieve client token', body: JSON.parse(resp_body), url: tokenURL, clientID: encodeURIComponent(clientID)})
+            badRequest(null, errorHandler, {msg: 'unable to retrieve client token', body: JSON.parse(resp_body), url: tokenURL, clientID: encodeURIComponent(clientID)})
           }
         })
       })
@@ -971,7 +1011,7 @@ function getTokensFromCodeThen(errorHandler, code, clientID, clientSecret, token
         callback(accessToken, refreshToken)
       } else {
         log('getTokensFromCodeThen', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)} body: ${body}`)
-        badRequest(errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
+        badRequest(null, errorHandler, {msg: 'unable to retrieve client token', body: resp_body})
       }
     })
   })
@@ -1046,16 +1086,16 @@ function ifXsrfHeaderValidThen(req, res, callback) {
           if (expectedHash == hash) {
             callback()
           } else {
-            rLib.forbidden(res, {msg: 'invalid xsrf token'})
+            forbidden(req, res, {msg: 'invalid xsrf token'})
           }
         } else {
-          rLib.forbidden(res, {msg: 'xsrf token expired'})
+          forbidden(req, res, {msg: 'xsrf token expired'})
         }
       } else {
-        rLib.forbidden(res, {msg: 'invalid xsrf token'})
+        forbidden(req, res, {msg: 'invalid xsrf token'})
       }
     } else {
-      rLib.forbidden(res, {msg: 'missing xsrf token'})
+      forbidden(req, res, {msg: 'missing xsrf token'})
     }
   }
 }
@@ -1195,6 +1235,20 @@ function forEachDoAsyncThen(elements, itemCallback, finalCallback) {
     }
 }
 
+function errorHandler(func) {
+  var statusCode
+  var headers
+  return {
+    writeHead: function(statusArg, headersArg) {
+      statusCode = statusArg
+      headers = headersArg
+    },
+    end: function(body) {
+      func({statusCode: statusCode, headers:headers, body:body})
+    }
+  }
+}
+
 exports.getEmailFromToken = getEmailFromToken
 exports.getEmail = getEmail
 exports.getServerPostObject = getServerPostObject
@@ -1211,7 +1265,6 @@ exports.created = created
 exports.respond = respond
 exports.internalizeURL = internalizeURL
 exports.internalizeURLs = internalizeURLs
-exports.externalizeURLs = externalizeURLs
 exports.getUser = getUser
 exports.getUserFromReq = getUserFromReq
 exports.getScopes = getScopes
@@ -1262,6 +1315,9 @@ exports.postToExternalResourceThen = postToExternalResourceThen
 exports.finalize=finalize
 exports.forEachDoAsyncByChunkThen = forEachDoAsyncByChunkThen
 exports.forEachDoAsyncThen = forEachDoAsyncThen
+exports.preconditionFailed = preconditionFailed
+exports.uuidw = uuidw
+exports.errorHandler = errorHandler
 
 // exported for testing only
 exports.isValidTokenFromIssuer = isValidTokenFromIssuer
