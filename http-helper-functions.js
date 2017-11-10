@@ -852,10 +852,20 @@ function isValidToken(token, publicKeys, scopes, callback) {
   let tokenParts = token.split('.')
   if (tokenParts.length != 3)
     return callback(false, {msg: 'malformed token'})
-  let header = JSON.parse(Buffer.from(tokenParts[0], 'base64').toString())
+  let header;
+  try {
+    header = JSON.parse(Buffer.from(tokenParts[0], 'base64').toString())
+  } catch (exception) {
+    return callback(false, {msg: exception.message})
+  }
   if (header.alg != 'RS256')
     return callback(false, {msg: 'token alg must be RS256', found: header.alg})
-  let claims = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
+  let claims;
+  try {
+    claims = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString())
+  } catch (exception) {
+    return callback(false, {msg: exception.message})
+  }
   let signature = tokenParts[2]
   let signedPart = token.substring(0, token.length - signature.length - 1)
   for (let i = 0; i< publicKeys.length; i++) {
