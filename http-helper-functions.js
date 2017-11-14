@@ -105,7 +105,7 @@ function sendRequest(method, resourceURL, headers, body, callback) {
   })
   clientReq.setTimeout(CLIENT_REQUEST_TIMEOUT, () => {
     clientReq.abort()
-    // Node will also generate an error, which will be logged below and the callback executed 
+    // Node will also generate an error, which will be logged below and the callback executed
   })
   clientReq.on('error', function (err) {
     log('http-helper-functions:sendRequest', `${msgPrefix} error ${err}`)
@@ -427,7 +427,7 @@ function forbidden(req, res, body) {
   body = body || (req ? {
     msg: 'Forbidden',
     component: process.env.COMPONENT_NAME,
-    url: req.url, 
+    url: req.url,
     host: req.headers.host,
     method: req.method,
     user: getUserFromReq(req)
@@ -471,7 +471,7 @@ function internalError(res, err) {
   res.writeHead(500, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
-}   
+}
 
 function duplicate(res, err) {
   err = err || {msg: 'duplicate'}
@@ -479,17 +479,17 @@ function duplicate(res, err) {
   res.writeHead(409, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
-}   
+}
 
 
 /**
- * 
- * @param {http.Request} req 
- * @param {http.Response} res 
- * @param {string, Buffer or object} body 
- * @param {string} contentLocation 
- * @param {string} etag 
- * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the 
+ *
+ * @param {http.Request} req
+ * @param {http.Response} res
+ * @param {string, Buffer or object} body
+ * @param {string} contentLocation
+ * @param {string} etag
+ * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the
  *                            body is a JSON-PATCH, then this will need to be refected in the media type if
  *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
  *                            not the media type that it will be serialized to, but we use the same values for both
@@ -507,13 +507,13 @@ function found(req, res, body, contentLocation, etag, bodyType) {
 }
 
 /**
- * 
- * @param {http.Request} req 
- * @param {http.Response} res 
- * @param {string, Buffer or object} body 
- * @param {string} location 
- * @param {string} etag 
- * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the 
+ *
+ * @param {http.Request} req
+ * @param {http.Response} res
+ * @param {string, Buffer or object} body
+ * @param {string} location
+ * @param {string} etag
+ * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the
  *                            body is a JSON-PATCH, then this will need to be refected in the media type if
  *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
  *                            not the media type that it will be serialized to, but we use the same values for both
@@ -528,13 +528,13 @@ function created(req, res, body, location, etag, bodyType) {
 }
 
 /**
- * 
- * @param {http.Request} req 
- * @param {http.Response} res 
- * @param {integer} status 
- * @param {object} headers 
- * @param {string, Buffer or object} body 
- * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the 
+ *
+ * @param {http.Request} req
+ * @param {http.Response} res
+ * @param {integer} status
+ * @param {object} headers
+ * @param {string, Buffer or object} body
+ * @param {string} bodyType - the caller may indicate what sort of object is in the body. For example, if the
  *                            body is a JSON-PATCH, then this will need to be refected in the media type if
  *                            we return JSON to the caller. bodyType is conceptually the 'class' of the object
  *                            not the media type that it will be serialized to, but we use the same values for both
@@ -548,7 +548,7 @@ function respond(req, res, status, headers, body, bodyType='application/json') {
         mediaRange = accept.split(';')[0]
       let wantsHTML = mediaRange.startsWith('text/html')
       let wantsJson = mediaRange.startsWith('application/json')
-      headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? bodyType : text.plain
+      headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? bodyType : 'text/plain'
       body = wantsHTML ? toHTML(body) : wantsJson ? JSON.stringify(body) : body.toString()
     }
     headers['Content-Length'] = Buffer.byteLength(body)
@@ -563,7 +563,7 @@ function preconditionFailed(req, res, err) {
   res.writeHead(412, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
-}   
+}
 
 const subdelims = [33, 36, 38, 39, 40, 41, // "!" / "$" / "&" / "'" / "(" / ")"
                    42, 43, 44, 59, 61 ]  // / "*" / "+" / "," / ";" / "="
@@ -767,7 +767,7 @@ function toHTML(body) {
 // The following function adapted from https://github.com/broofa/node-uuid4 under MIT License
 // Copyright (c) 2010-2012 Robert Kieffer
 var toHex = Array(256)
-for (var val = 0; val < 256; val++) 
+for (var val = 0; val < 256; val++)
   toHex[val] = (val + 0x100).toString(16).substr(1)
 function uuid4() {
   var buf = randomBytes(16)
@@ -1214,7 +1214,7 @@ function forEachDoAsyncByChunkThen(elements, itemCallback, finalCallback, chunkS
     finalCallback()
   else
     _forEachDoAsyncByChunkThen(0)
-  
+
   function _forEachDoAsyncByChunkThen(chunk) {
     let limit = Math.min(totalCount, (chunk + 1) * chunkSize)
     let start = chunk * chunkSize
@@ -1237,7 +1237,7 @@ function forEachDoAsyncThen(elements, itemCallback, finalCallback) {
     return finalCallback()
   else {
     let count = totalCount
-    for (let i = 0; i < totalCount; i++) 
+    for (let i = 0; i < totalCount; i++)
       itemCallback(() => {
         if (--count == 0)
           finalCallback()
