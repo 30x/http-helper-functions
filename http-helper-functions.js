@@ -1213,36 +1213,41 @@ function forEachDoAsyncByChunkThen(elements, itemCallback, finalCallback, chunkS
   if (totalCount == 0)
     finalCallback()
   else
-    _forEachDoAsyncByChunkThen(0)
-
-  function _forEachDoAsyncByChunkThen(chunk) {
+    doChunkThen(0)
+  
+  function doChunkThen(chunk) {
     let limit = Math.min(totalCount, (chunk + 1) * chunkSize)
     let start = chunk * chunkSize
-    let count = limit - start
+    let todoCount = limit - start
     for (let i = start; i < limit; i++)
       itemCallback(doneOne, elements[i], i, chunk)
     function doneOne() {
-      if (--count == 0)
+      if (--todoCount == 0)
         if (limit < totalCount)
-          _forEachDoAsyncByChunkThen(chunk + 1)
+          doChunkThen(chunk + 1)
         else
           finalCallback()
     }
   }
 }
 
-function forEachDoAsyncThen(elements, itemCallback, finalCallback) {
+function forEachDoAsyncThen(elements, itemCallback, finalCallback, limit = Infinity) {
   let totalCount = elements.length
+  let todoCount = totalCount
+  let limit = Math.min(limit, totalCount)
+  let issuedCount = limit
   if (totalCount == 0)
     return finalCallback()
-  else {
-    let count = totalCount
-    for (let i = 0; i < totalCount; i++)
-      itemCallback(() => {
-        if (--count == 0)
-          finalCallback()
-      }, elements[i], i)
-    }
+  else
+    for (let i = 0; i < limit; i++)
+      itemCallback(doneOne, elements[i], i)
+  function doneOne() {
+    if (--todoCount == 0)
+      finalCallback()
+    else
+      if (issuedCount < totalCount)
+        itemCallback(doneOne, elements[issuedCount], issuedCount++)
+  }
 }
 
 function errorHandler(func) {
