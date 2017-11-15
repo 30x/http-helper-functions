@@ -543,13 +543,19 @@ function respond(req, res, status, headers, body, bodyType='application/json') {
   if (body !== undefined) {
     if (!(body instanceof Buffer)) {
       let mediaRange = 'application/json'
-      let accept = req ? req.headers.accept : null
-      if (accept != null)
-        mediaRange = accept.split(';')[0]
+      if (req && req.headers.accept) {
+        let acceptMediaRange = req.headers.accept.split(';')[0]
+        if (acceptMediaRange == '*/*' || 
+            acceptMediaRange == 'application/*' || 
+            (acceptMediaRange.startsWith('application/') && acceptMediaRange.endsWith('json')))
+          mediaRange = 'application/json'
+        else
+          mediaRange = acceptMediaRange
+      }
       let wantsHTML = mediaRange.startsWith('text/html')
       let wantsJson = mediaRange.startsWith('application/json')
       headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? bodyType : 'text/plain'
-      body = wantsHTML ? toHTML(body) : wantsJson ? JSON.stringify(body) : body.toString()
+      body = wantsHTML ? toHTML(body) : JSON.stringify(body)
     }
     headers['Content-Length'] = Buffer.byteLength(body)
   }
