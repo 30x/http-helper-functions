@@ -1234,7 +1234,7 @@ function forEachDoAsyncByChunkThen(elements, itemCallback, finalCallback, chunkS
 function forEachDoAsyncThen(elements, itemCallback, finalCallback, limit = Infinity) {
   let totalCount = elements.length
   let todoCount = totalCount
-  let limit = Math.min(limit, totalCount)
+  limit = Math.min(limit, totalCount)
   let issuedCount = limit
   if (totalCount == 0)
     return finalCallback()
