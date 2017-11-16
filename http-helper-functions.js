@@ -71,23 +71,19 @@ function generateIdentifier() {
 }
 
 function sendRequest(method, resourceURL, headers, body, callback) {
-  if (typeof headers == 'function') {
-    callback = headers
-    headers = {}
-  }
-  var parsedURL = resourceURL.startsWith('//') ? url.parse(INTERNAL_PROTOCOL + resourceURL) : url.parse(resourceURL) // amazingly, url.parse parses URLs that begin with // wrongly
+  if (typeof headers == 'function')
+    [callback, headers] = [headers, {}]
+  let parsedURL = resourceURL.startsWith('//') ? url.parse(INTERNAL_PROTOCOL + resourceURL) : url.parse(resourceURL) // amazingly, url.parse parses URLs that begin with // wrongly
   let hostname = parsedURL.host == null ? INTERNAL_SY_ROUTER_HOST : parsedURL.hostname
   let port = parsedURL.host == null ? INTERNAL_SY_ROUTER_PORT : parsedURL.port
   let protocol = parsedURL.protocol == null ? INTERNAL_PROTOCOL : parsedURL.protocol
   let pathRelativeURL = parsedURL.path
-  var id = generateIdentifier()
+  let id = generateIdentifier()
   let msgPrefix = `id: ${id} method: ${method} hostname: ${hostname}${port ? `:${port}` : ''} url: ${pathRelativeURL}`
   log('http-helper-functions:sendRequest', `${msgPrefix} request`)
   body = setContentWithLengthAndType(headers, body)
-  if ('host' in headers) {
-    headers = Object.assign({}, headers)
-    headers.host = parsedURL.host
-  }
+  if (!'host' in headers)
+    headers.host = hostname
   var options = {
     protocol: protocol,
     hostname: hostname,
