@@ -275,7 +275,7 @@ function getServerPostObject(req, res, callback) {
         log('http-helper-functions:getServerPostObject', `invalid JSON: ${err.message} body: ${body}`)
         badRequest(req, res, `invalid JSON: ${err.message} body: ${body}` )
       }
-      if (jso)
+      if (jso !== undefined)
         callback(internalizeURLs(jso, req.headers.host, contentType))
     } else
       badRequest(req, res, 'input must be JSON')
@@ -464,6 +464,7 @@ function badRequest(req, res, err) {
 function internalError(res, err) {
   err = err || {msg: 'internal error'}
   var body = JSON.stringify(err)
+  log('http-helper-functions:internalError', body)
   res.writeHead(500, {'Content-Type': 'application/json',
                       'Content-Length': Buffer.byteLength(body)})
   res.end(body)
