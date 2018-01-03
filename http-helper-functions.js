@@ -838,7 +838,7 @@ function withValidClientToken(errorHandler, token, clientID, clientSecret, token
             callback(token)
           } else {
             log('withValidClientToken', `unable to retrieve token. tokenURL: ${tokenURL}, headers: ${util.inspect(headers)}`)
-            badRequest(null, errorHandler, {msg: 'unable to retrieve client token', body: JSON.parse(resp_body), url: tokenURL, clientID: encodeURIComponent(clientID)})
+            badRequest(null, errorHandler, {msg: 'unable to retrieve client token', body: resp_body, url: tokenURL, clientID: encodeURIComponent(clientID)})
           }
         })
       })
