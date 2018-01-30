@@ -551,13 +551,19 @@ function respond(req, res, status, headers, body, bodyType='application/json') {
       }
       let wantsHTML = mediaRange.startsWith('text/html')
       let wantsJson = mediaRange.startsWith('application/json')
-      headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? bodyType : 'text/plain'
+      if (Object.keys(headers).filter(getContentTypeFilter).length === 0) {
+        headers['Content-Type'] = wantsHTML ? 'text/html' : wantsJson ? bodyType : 'text/plain'
+      }
       body = wantsHTML ? toHTML(body) : JSON.stringify(body)
     }
     headers['Content-Length'] = Buffer.byteLength(body)
   }
   res.writeHead(status, headers)
   res.end(body)
+}
+
+function getContentTypeFilter(element, index, array) {
+  return element.toString().toLowerCase() === 'content-type';
 }
 
 function preconditionFailed(req, res, err) {
